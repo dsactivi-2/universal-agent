@@ -5,6 +5,7 @@
 import type { AgentId, AgentDefinition } from '../types/index.js';
 import { BaseAgent } from './base-agent.js';
 import { ResearchAgent } from './research-agent.js';
+import { CodingAgent } from './coding-agent.js';
 import { ToolRegistry } from '../tools/registry.js';
 
 export class AgentRegistry {
@@ -13,6 +14,7 @@ export class AgentRegistry {
   constructor(toolRegistry: ToolRegistry) {
     // Register default agents
     this.register(new ResearchAgent(toolRegistry));
+    this.register(new CodingAgent(toolRegistry));
   }
 
   register(agent: BaseAgent): void {
@@ -37,12 +39,15 @@ export class AgentRegistry {
   }> {
     const result: Array<{ agentId: AgentId; capabilities: string[] }> = [];
 
+    const agentCapabilities: Record<string, string[]> = {
+      research: ['web_research', 'competitive_analysis'],
+      coding: ['write_code', 'edit_code', 'debug_code', 'execute_code', 'git_operations']
+    };
+
     for (const [id, agent] of this.agents) {
-      // For now, just return agent IDs
-      // In a full implementation, we'd store capabilities in the agent
       result.push({
         agentId: id,
-        capabilities: ['web_research', 'competitive_analysis'] // TODO: Get from agent
+        capabilities: agentCapabilities[id] || []
       });
     }
 
