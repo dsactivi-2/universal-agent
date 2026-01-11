@@ -26,7 +26,8 @@ export default function ChatPage() {
     appendStreamingText,
     selectedAgent,
     setSelectedAgent,
-    addNotification
+    addNotification,
+    language
   } = useAppStore();
 
   // WebSocket for streaming
@@ -102,7 +103,7 @@ export default function ChatPage() {
 
     try {
       // Create task via API - backend returns synchronous result
-      const response = await api.createTask(input.trim(), selectedAgent) as unknown as {
+      const response = await api.createTask(input.trim(), selectedAgent, language) as unknown as {
         taskId: string;
         status: string;
         summary?: string;

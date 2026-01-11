@@ -95,10 +95,10 @@ class ApiClient {
   // TASKS
   // ============================================================
 
-  async createTask(prompt: string, agentId?: string): Promise<Task> {
+  async createTask(prompt: string, agentId?: string, language?: string): Promise<Task> {
     return this.request<Task>('/api/tasks', {
       method: 'POST',
-      body: JSON.stringify({ message: prompt, agentId })
+      body: JSON.stringify({ message: prompt, agentId, language })
     });
   }
 
