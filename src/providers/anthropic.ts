@@ -22,11 +22,12 @@ import type {
 
 export class AnthropicProvider implements ModelProvider {
   readonly name = 'anthropic';
-  readonly defaultModel = 'claude-3-5-sonnet-20241022';
+  readonly defaultModel = 'claude-sonnet-4-20250514';
   readonly supportedModels = [
+    'claude-sonnet-4-20250514',
+    'claude-opus-4-20250514',
     'claude-3-5-sonnet-20241022',
     'claude-3-opus-20240229',
-    'claude-3-sonnet-20240229',
     'claude-3-haiku-20240307'
   ];
 
