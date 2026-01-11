@@ -25,7 +25,8 @@ export default function ChatPage() {
     setStreamingText,
     appendStreamingText,
     selectedAgent,
-    setSelectedAgent
+    setSelectedAgent,
+    addNotification
   } = useAppStore();
 
   // WebSocket for streaming
@@ -44,6 +45,11 @@ export default function ChatPage() {
       }
       setStreamingText('');
       setIsLoading(false);
+      addNotification({
+        type: 'success',
+        title: 'Task Completed',
+        message: 'Your AI assistant has finished processing.'
+      });
     },
     onTaskFailed: (taskId, error) => {
       addChatMessage({
@@ -54,6 +60,11 @@ export default function ChatPage() {
       });
       setStreamingText('');
       setIsLoading(false);
+      addNotification({
+        type: 'error',
+        title: 'Task Failed',
+        message: error
+      });
     },
     onToolCall: (taskId, toolCall) => {
       // Could show tool calls in UI
@@ -90,21 +101,53 @@ export default function ChatPage() {
     setIsLoading(true);
 
     try {
-      // Create task via API
-      const task = await api.createTask(input.trim(), selectedAgent);
-
-      // Add placeholder assistant message
-      const assistantMessage: ChatMessage = {
-        id: generateId(),
-        role: 'assistant',
-        content: '',
-        timestamp: new Date().toISOString(),
-        isStreaming: true
+      // Create task via API - backend returns synchronous result
+      const response = await api.createTask(input.trim(), selectedAgent) as unknown as {
+        taskId: string;
+        status: string;
+        summary?: string;
+        error?: string;
       };
-      addChatMessage(assistantMessage);
 
-      // Subscribe to task updates
-      subscribeToTask(task.id);
+      // Backend returns completed result synchronously
+      if (response.status === 'completed' && response.summary) {
+        addChatMessage({
+          id: generateId(),
+          role: 'assistant',
+          content: response.summary,
+          timestamp: new Date().toISOString()
+        });
+        setIsLoading(false);
+        addNotification({
+          type: 'success',
+          title: 'Task Completed',
+          message: 'Your AI assistant has finished processing.'
+        });
+      } else if (response.status === 'failed' || response.error) {
+        addChatMessage({
+          id: generateId(),
+          role: 'assistant',
+          content: `Error: ${response.error || 'Task failed'}`,
+          timestamp: new Date().toISOString()
+        });
+        setIsLoading(false);
+        addNotification({
+          type: 'error',
+          title: 'Task Failed',
+          message: response.error || 'Unknown error'
+        });
+      } else {
+        // Task is still running - add placeholder and subscribe to WebSocket
+        const assistantMessage: ChatMessage = {
+          id: generateId(),
+          role: 'assistant',
+          content: '',
+          timestamp: new Date().toISOString(),
+          isStreaming: true
+        };
+        addChatMessage(assistantMessage);
+        subscribeToTask(response.taskId);
+      }
     } catch (error) {
       addChatMessage({
         id: generateId(),
@@ -113,6 +156,11 @@ export default function ChatPage() {
         timestamp: new Date().toISOString()
       });
       setIsLoading(false);
+      addNotification({
+        type: 'error',
+        title: 'Request Failed',
+        message: error instanceof Error ? error.message : 'Unknown error'
+      });
     }
   };
 

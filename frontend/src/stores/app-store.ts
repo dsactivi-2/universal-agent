@@ -6,6 +6,15 @@ import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import type { Task, ChatMessage, SystemStats } from '@/types';
 
+export interface Notification {
+  id: string;
+  type: 'info' | 'success' | 'error' | 'warning';
+  title: string;
+  message: string;
+  timestamp: string;
+  read: boolean;
+}
+
 interface AppState {
   // Theme
   theme: 'light' | 'dark' | 'system';
@@ -42,6 +51,13 @@ interface AppState {
   // Auth
   isAuthenticated: boolean;
   setAuthenticated: (auth: boolean) => void;
+
+  // Notifications
+  notifications: Notification[];
+  addNotification: (notification: Omit<Notification, 'id' | 'timestamp' | 'read'>) => void;
+  removeNotification: (id: string) => void;
+  clearNotifications: () => void;
+  markNotificationRead: (id: string) => void;
 }
 
 export const useAppStore = create<AppState>()(
@@ -90,7 +106,33 @@ export const useAppStore = create<AppState>()(
 
       // Auth
       isAuthenticated: false,
-      setAuthenticated: (auth) => set({ isAuthenticated: auth })
+      setAuthenticated: (auth) => set({ isAuthenticated: auth }),
+
+      // Notifications
+      notifications: [],
+      addNotification: (notification) =>
+        set((state) => ({
+          notifications: [
+            {
+              ...notification,
+              id: `notif_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+              timestamp: new Date().toISOString(),
+              read: false
+            },
+            ...state.notifications
+          ].slice(0, 50) // Keep only last 50 notifications
+        })),
+      removeNotification: (id) =>
+        set((state) => ({
+          notifications: state.notifications.filter((n) => n.id !== id)
+        })),
+      clearNotifications: () => set({ notifications: [] }),
+      markNotificationRead: (id) =>
+        set((state) => ({
+          notifications: state.notifications.map((n) =>
+            n.id === id ? { ...n, read: true } : n
+          )
+        }))
     }),
     {
       name: 'universal-agent-storage',

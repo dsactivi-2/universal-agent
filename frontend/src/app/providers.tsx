@@ -6,7 +6,7 @@ import { useAppStore } from '@/stores/app-store';
 import { api } from '@/lib/api';
 
 export function Providers({ children }: { children: React.ReactNode }) {
-  const { theme, isAuthenticated, setAuthenticated } = useAppStore();
+  const { theme, isAuthenticated, setAuthenticated, addNotification } = useAppStore();
   const [isLoading, setIsLoading] = useState(true);
 
   // Auto-login on app load
@@ -22,6 +22,7 @@ export function Providers({ children }: { children: React.ReactNode }) {
 
       // Generate or retrieve user ID
       let userId = localStorage.getItem('user_id');
+      const isNewUser = !userId;
       if (!userId) {
         userId = `user_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
         localStorage.setItem('user_id', userId);
@@ -30,15 +31,29 @@ export function Providers({ children }: { children: React.ReactNode }) {
       try {
         await api.login(userId);
         setAuthenticated(true);
+
+        // Welcome notification for new users
+        if (isNewUser) {
+          addNotification({
+            type: 'success',
+            title: 'Welcome to Universal Agent!',
+            message: 'Your AI assistant is ready. Start chatting!'
+          });
+        }
       } catch (error) {
         console.error('Auto-login failed:', error);
+        addNotification({
+          type: 'error',
+          title: 'Connection Error',
+          message: 'Failed to connect to server. Please refresh.'
+        });
       } finally {
         setIsLoading(false);
       }
     };
 
     initAuth();
-  }, [setAuthenticated]);
+  }, [setAuthenticated, addNotification]);
 
   // Apply theme class to document
   useEffect(() => {
