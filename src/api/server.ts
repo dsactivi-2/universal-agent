@@ -12,6 +12,7 @@ import { v4 as uuid } from 'uuid';
 import { UniversalAgent } from '../index.js';
 import { Brain } from '../memory/brain.js';
 import type { LogEntry, ToolCallRecord, ExecutionCallbacks } from '../types/index.js';
+import { createAdditionalRoutes } from './routes.js';
 
 // ============================================================
 // TYPES
@@ -154,6 +155,10 @@ export class APIServer {
     protectedRouter.delete('/memory/:id', async (req, res) => {
       await this.handleMemoryDelete(req as AuthenticatedRequest, res);
     });
+
+    // Add additional routes for frontend
+    const additionalRoutes = createAdditionalRoutes(this.agent, this.brain);
+    protectedRouter.use(additionalRoutes);
 
     this.app.use('/api', protectedRouter);
   }
