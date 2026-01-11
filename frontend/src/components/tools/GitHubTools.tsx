@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
 import { api, GitHubRepo, GitHubBranch, GitHubContent, GitHubCommit } from '@/lib/api';
+import { useAppStore } from '@/stores/app-store';
 import {
   Github,
   GitBranch,
@@ -19,10 +20,21 @@ import {
   RefreshCw,
   ChevronRight,
   ArrowLeft,
-  Code
+  Code,
+  Search,
+  Bug,
+  BookOpen,
+  FileCode,
+  MessageSquare,
+  Sparkles,
+  X,
+  Loader2
 } from 'lucide-react';
 
+type ActionType = 'analyze' | 'explain' | 'readme' | 'bugs' | 'chat' | 'guide-short' | 'guide-long';
+
 export function GitHubTools() {
+  const { language } = useAppStore();
   const [connected, setConnected] = useState(false);
   const [githubUser, setGithubUser] = useState<{ login: string; avatar: string } | null>(null);
   const [repos, setRepos] = useState<GitHubRepo[]>([]);
@@ -32,9 +44,24 @@ export function GitHubTools() {
   const [commits, setCommits] = useState<GitHubCommit[]>([]);
   const [currentPath, setCurrentPath] = useState<string[]>([]);
   const [fileContent, setFileContent] = useState<string | null>(null);
+  const [selectedFile, setSelectedFile] = useState<GitHubContent | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [activeTab, setActiveTab] = useState<'files' | 'commits'>('files');
+  const [activeTab, setActiveTab] = useState<'files' | 'commits' | 'actions'>('files');
+
+  // Action states
+  const [actionLoading, setActionLoading] = useState(false);
+  const [actionResult, setActionResult] = useState<string | null>(null);
+  const [currentAction, setCurrentAction] = useState<ActionType | null>(null);
+
+  const getLanguageName = () => {
+    switch (language) {
+      case 'de': return 'Deutsch';
+      case 'en': return 'English';
+      case 'bs': return 'Bosanski';
+      default: return 'Deutsch';
+    }
+  };
 
   useEffect(() => {
     checkGitHubStatus();
@@ -93,7 +120,9 @@ export function GitHubTools() {
     setSelectedRepo(repo);
     setCurrentPath([]);
     setFileContent(null);
+    setSelectedFile(null);
     setActiveTab('files');
+    setActionResult(null);
 
     try {
       setLoading(true);
@@ -121,6 +150,7 @@ export function GitHubTools() {
     if (item.type === 'dir') {
       setCurrentPath([...currentPath, item.name]);
       setFileContent(null);
+      setSelectedFile(null);
 
       try {
         setLoading(true);
@@ -135,6 +165,7 @@ export function GitHubTools() {
         setLoading(true);
         const content = await api.githubContents(owner, repoName, item.path) as GitHubContent;
         setFileContent(content.content || 'Keine Vorschau verfügbar');
+        setSelectedFile(item);
       } catch (e) {
         setError(e instanceof Error ? e.message : 'Datei laden fehlgeschlagen');
       }
@@ -149,6 +180,7 @@ export function GitHubTools() {
     const newPath = currentPath.slice(0, -1);
     setCurrentPath(newPath);
     setFileContent(null);
+    setSelectedFile(null);
 
     try {
       setLoading(true);
@@ -168,6 +200,177 @@ export function GitHubTools() {
     setCommits([]);
     setCurrentPath([]);
     setFileContent(null);
+    setSelectedFile(null);
+    setActionResult(null);
+  };
+
+  // Action handlers
+  const executeAction = async (action: ActionType) => {
+    if (!selectedRepo) return;
+
+    setActionLoading(true);
+    setCurrentAction(action);
+    setActionResult(null);
+    setActiveTab('actions');
+
+    const langName = getLanguageName();
+    const repoUrl = selectedRepo.url;
+    const repoName = selectedRepo.fullName;
+    const filePath = selectedFile?.path;
+    const fileCode = fileContent;
+
+    let prompt = '';
+
+    switch (action) {
+      case 'analyze':
+        prompt = `Analysiere das GitHub Repository ${repoName} (${repoUrl}).
+Gib eine strukturierte Übersicht über:
+1. Projekttyp und Technologien
+2. Ordnerstruktur
+3. Hauptfunktionalitäten
+4. Code-Qualität Einschätzung
+5. Verbesserungsvorschläge
+
+Antworte auf ${langName}.`;
+        break;
+
+      case 'explain':
+        if (filePath && fileCode) {
+          prompt = `Erkläre den folgenden Code aus ${repoName}/${filePath}:
+
+\`\`\`
+${fileCode}
+\`\`\`
+
+Erkläre:
+1. Was macht dieser Code?
+2. Wie funktioniert er?
+3. Wichtige Funktionen/Klassen
+4. Potentielle Verbesserungen
+
+Antworte auf ${langName}.`;
+        } else {
+          prompt = `Erkläre das Repository ${repoName} (${repoUrl}).
+Was ist der Zweck dieses Projekts und wie ist es aufgebaut?
+Antworte auf ${langName}.`;
+        }
+        break;
+
+      case 'readme':
+        prompt = `Erstelle eine professionelle README.md für das Repository ${repoName} (${repoUrl}).
+
+Die README sollte enthalten:
+1. Projektname und Beschreibung
+2. Features
+3. Installation
+4. Verwendung
+5. Konfiguration
+6. API/Endpoints (falls relevant)
+7. Lizenz
+
+Formatiere als gültiges Markdown. Antworte auf ${langName}.`;
+        break;
+
+      case 'bugs':
+        if (filePath && fileCode) {
+          prompt = `Analysiere den folgenden Code aus ${repoName}/${filePath} auf Bugs und Probleme:
+
+\`\`\`
+${fileCode}
+\`\`\`
+
+Suche nach:
+1. Bugs und Fehler
+2. Sicherheitslücken
+3. Performance-Probleme
+4. Code Smells
+5. Best Practice Verstöße
+
+Gib konkrete Verbesserungsvorschläge. Antworte auf ${langName}.`;
+        } else {
+          prompt = `Analysiere das Repository ${repoName} (${repoUrl}) auf potentielle Bugs und Probleme.
+Fokussiere auf häufige Fehlerquellen und Sicherheitsrisiken.
+Antworte auf ${langName}.`;
+        }
+        break;
+
+      case 'chat':
+        // Open chat with repo context
+        const chatContext = filePath && fileCode
+          ? `Ich arbeite am Repository ${repoName}. Aktuelle Datei: ${filePath}\n\nCode:\n\`\`\`\n${fileCode}\n\`\`\``
+          : `Ich arbeite am Repository ${repoName} (${repoUrl})`;
+
+        // Store in localStorage for chat to pick up
+        localStorage.setItem('github_context', JSON.stringify({
+          repo: repoName,
+          url: repoUrl,
+          file: filePath,
+          code: fileCode
+        }));
+
+        window.location.href = '/chat';
+        return;
+
+      case 'guide-short':
+        prompt = `Erstelle eine KURZE Benutzeranleitung für das Tool/Projekt ${repoName} (${repoUrl}).
+
+Die Anleitung ist für ENDBENUTZER gedacht, nicht für Entwickler.
+Halte sie einfach, verständlich und auf das Wesentliche fokussiert.
+
+Format:
+1. Was ist dieses Tool? (1-2 Sätze)
+2. Wie starte ich es? (Schritte)
+3. Grundfunktionen (Bullet Points)
+4. Tipps (optional, max 3)
+
+Maximal 1 Seite. Antworte auf ${langName}.`;
+        break;
+
+      case 'guide-long':
+        prompt = `Erstelle eine VOLLSTÄNDIGE Benutzeranleitung für das Tool/Projekt ${repoName} (${repoUrl}).
+
+Die Anleitung soll umfassend sein und alle Aspekte abdecken:
+
+1. Einführung
+   - Was ist dieses Tool?
+   - Für wen ist es gedacht?
+   - Hauptvorteile
+
+2. Installation & Setup
+   - Voraussetzungen
+   - Schritt-für-Schritt Installation
+   - Konfiguration
+
+3. Erste Schritte
+   - Grundlegende Bedienung
+   - Wichtige Konzepte
+
+4. Funktionen im Detail
+   - Alle Features erklärt
+   - Screenshots/Beispiele beschreiben
+
+5. Erweiterte Nutzung
+   - Fortgeschrittene Features
+   - Tipps & Tricks
+
+6. Fehlerbehebung
+   - Häufige Probleme
+   - Lösungen
+
+7. FAQ
+
+Formatiere als gut strukturiertes Dokument. Antworte auf ${langName}.`;
+        break;
+    }
+
+    try {
+      const result = await api.createTask(prompt, undefined, language);
+      setActionResult(result.result || result.error || 'Keine Antwort erhalten');
+    } catch (e) {
+      setActionResult(`Fehler: ${e instanceof Error ? e.message : 'Unbekannter Fehler'}`);
+    }
+
+    setActionLoading(false);
   };
 
   // Not connected
@@ -358,7 +561,7 @@ export function GitHubTools() {
           </Card>
 
           {/* Tab Navigation */}
-          <div className="flex gap-2">
+          <div className="flex gap-2 flex-wrap">
             <Button
               data-testid="tools_tab_files"
               onClick={() => setActiveTab('files')}
@@ -376,6 +579,15 @@ export function GitHubTools() {
             >
               <GitCommit className="w-4 h-4 mr-1" />
               Commits
+            </Button>
+            <Button
+              data-testid="tools_tab_actions"
+              onClick={() => setActiveTab('actions')}
+              variant={activeTab === 'actions' ? 'primary' : 'secondary'}
+              size="sm"
+            >
+              <Sparkles className="w-4 h-4 mr-1" />
+              AI Aktionen
             </Button>
           </div>
 
@@ -437,16 +649,36 @@ export function GitHubTools() {
                   <div className="flex items-center justify-between mb-2">
                     <span className="text-sm text-dark-500 flex items-center gap-2">
                       <Code className="w-4 h-4" />
-                      Datei-Inhalt
+                      {selectedFile?.path || 'Datei-Inhalt'}
                     </span>
-                    <Button
-                      data-testid="tools_button_close_file"
-                      onClick={() => setFileContent(null)}
-                      variant="ghost"
-                      size="sm"
-                    >
-                      Schließen
-                    </Button>
+                    <div className="flex gap-2">
+                      <Button
+                        data-testid="tools_button_explain_file"
+                        onClick={() => executeAction('explain')}
+                        variant="secondary"
+                        size="sm"
+                      >
+                        <FileCode className="w-4 h-4 mr-1" />
+                        Erklären
+                      </Button>
+                      <Button
+                        data-testid="tools_button_bugs_file"
+                        onClick={() => executeAction('bugs')}
+                        variant="secondary"
+                        size="sm"
+                      >
+                        <Bug className="w-4 h-4 mr-1" />
+                        Bugs finden
+                      </Button>
+                      <Button
+                        data-testid="tools_button_close_file"
+                        onClick={() => { setFileContent(null); setSelectedFile(null); }}
+                        variant="ghost"
+                        size="sm"
+                      >
+                        <X className="w-4 h-4" />
+                      </Button>
+                    </div>
                   </div>
                   <pre
                     data-testid="tools_file_content"
@@ -488,6 +720,150 @@ export function GitHubTools() {
                 ))}
               </div>
             </Card>
+          )}
+
+          {/* Actions Tab */}
+          {activeTab === 'actions' && (
+            <div className="space-y-4">
+              {/* Action Buttons */}
+              <Card className="p-4">
+                <h3 className="text-lg font-semibold mb-4 flex items-center gap-2">
+                  <Sparkles className="w-5 h-5 text-primary-500" />
+                  AI Aktionen für {selectedRepo.name}
+                </h3>
+
+                <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+                  <Button
+                    data-testid="tools_action_analyze"
+                    onClick={() => executeAction('analyze')}
+                    loading={actionLoading && currentAction === 'analyze'}
+                    disabled={actionLoading}
+                    variant="secondary"
+                    className="flex-col h-24 text-center"
+                  >
+                    <Search className="w-6 h-6 mb-2" />
+                    Repo analysieren
+                  </Button>
+
+                  <Button
+                    data-testid="tools_action_explain"
+                    onClick={() => executeAction('explain')}
+                    loading={actionLoading && currentAction === 'explain'}
+                    disabled={actionLoading}
+                    variant="secondary"
+                    className="flex-col h-24 text-center"
+                  >
+                    <FileCode className="w-6 h-6 mb-2" />
+                    Code erklären
+                  </Button>
+
+                  <Button
+                    data-testid="tools_action_readme"
+                    onClick={() => executeAction('readme')}
+                    loading={actionLoading && currentAction === 'readme'}
+                    disabled={actionLoading}
+                    variant="secondary"
+                    className="flex-col h-24 text-center"
+                  >
+                    <BookOpen className="w-6 h-6 mb-2" />
+                    README generieren
+                  </Button>
+
+                  <Button
+                    data-testid="tools_action_bugs"
+                    onClick={() => executeAction('bugs')}
+                    loading={actionLoading && currentAction === 'bugs'}
+                    disabled={actionLoading}
+                    variant="secondary"
+                    className="flex-col h-24 text-center"
+                  >
+                    <Bug className="w-6 h-6 mb-2" />
+                    Bugs finden
+                  </Button>
+
+                  <Button
+                    data-testid="tools_action_chat"
+                    onClick={() => executeAction('chat')}
+                    disabled={actionLoading}
+                    variant="secondary"
+                    className="flex-col h-24 text-center"
+                  >
+                    <MessageSquare className="w-6 h-6 mb-2" />
+                    Im Chat öffnen
+                  </Button>
+
+                  <div className="col-span-2 md:col-span-1">
+                    <p className="text-xs text-dark-500 mb-2 text-center">Anleitung erstellen</p>
+                    <div className="flex gap-2">
+                      <Button
+                        data-testid="tools_action_guide_short"
+                        onClick={() => executeAction('guide-short')}
+                        loading={actionLoading && currentAction === 'guide-short'}
+                        disabled={actionLoading}
+                        variant="secondary"
+                        size="sm"
+                        className="flex-1"
+                      >
+                        Kurz
+                      </Button>
+                      <Button
+                        data-testid="tools_action_guide_long"
+                        onClick={() => executeAction('guide-long')}
+                        loading={actionLoading && currentAction === 'guide-long'}
+                        disabled={actionLoading}
+                        variant="secondary"
+                        size="sm"
+                        className="flex-1"
+                      >
+                        Lang
+                      </Button>
+                    </div>
+                  </div>
+                </div>
+
+                {selectedFile && (
+                  <p className="mt-4 text-sm text-dark-500">
+                    Ausgewählte Datei: <code className="bg-dark-100 dark:bg-dark-800 px-2 py-0.5 rounded">{selectedFile.path}</code>
+                  </p>
+                )}
+
+                <p className="mt-2 text-xs text-dark-400">
+                  Sprache: {getLanguageName()} (änderbar in Settings)
+                </p>
+              </Card>
+
+              {/* Action Result */}
+              {(actionLoading || actionResult) && (
+                <Card className="p-4">
+                  <div className="flex items-center justify-between mb-4">
+                    <h3 className="text-lg font-semibold">Ergebnis</h3>
+                    {actionResult && (
+                      <Button
+                        onClick={() => setActionResult(null)}
+                        variant="ghost"
+                        size="sm"
+                      >
+                        <X className="w-4 h-4" />
+                      </Button>
+                    )}
+                  </div>
+
+                  {actionLoading ? (
+                    <div className="flex items-center justify-center py-12">
+                      <Loader2 className="w-8 h-8 animate-spin text-primary-500" />
+                      <span className="ml-3 text-dark-500">AI arbeitet...</span>
+                    </div>
+                  ) : (
+                    <div
+                      data-testid="tools_action_result"
+                      className="prose dark:prose-invert max-w-none p-4 bg-dark-50 dark:bg-dark-900 rounded-lg overflow-auto max-h-[500px]"
+                    >
+                      <pre className="whitespace-pre-wrap font-sans text-sm">{actionResult}</pre>
+                    </div>
+                  )}
+                </Card>
+              )}
+            </div>
           )}
         </>
       )}
