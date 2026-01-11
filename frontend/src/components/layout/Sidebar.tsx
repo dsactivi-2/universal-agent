@@ -12,12 +12,14 @@ import {
   Clock,
   Settings,
   ChevronLeft,
-  Bot
+  Bot,
+  Wrench
 } from 'lucide-react';
 
 const navigation = [
   { name: 'Dashboard', href: '/', icon: LayoutDashboard },
   { name: 'Chat', href: '/chat', icon: MessageSquare },
+  { name: 'Tools', href: '/tools', icon: Wrench },
   { name: 'Workflows', href: '/workflows', icon: GitBranch },
   { name: 'Memory', href: '/memory', icon: Database },
   { name: 'Scheduler', href: '/scheduler', icon: Clock },

@@ -12,7 +12,15 @@ import type {
   Workflow,
   WorkflowExecution,
   ApiResponse,
-  PaginatedResponse
+  PaginatedResponse,
+  ToolResult,
+  FileReadResult,
+  FileListResult,
+  CodeExecuteResult,
+  GitStatusResult,
+  GitLogResult,
+  SqlQueryResult,
+  ChartResult
 } from '@/types';
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000';
@@ -265,6 +273,133 @@ class ApiClient {
 
   async listAgents(): Promise<{ id: string; name: string; description: string }[]> {
     return this.request('/api/agents');
+  }
+
+  // ============================================================
+  // TOOLS - Direct tool execution via Chat Agent
+  // All tools return Task which contains the result in the summary field
+  // ============================================================
+
+  // File Operations
+  async fileRead(path: string): Promise<Task> {
+    return this.createTask(`Lies die Datei: ${path}`);
+  }
+
+  async fileWrite(path: string, content: string): Promise<Task> {
+    return this.createTask(`Schreibe in Datei ${path}:\n\n${content}`);
+  }
+
+  async fileEdit(path: string, search: string, replace: string): Promise<Task> {
+    return this.createTask(`Ersetze in Datei ${path} "${search}" mit "${replace}"`);
+  }
+
+  async fileList(path: string): Promise<Task> {
+    return this.createTask(`Liste alle Dateien in: ${path}`);
+  }
+
+  // Code Execution
+  async executeCode(language: string, code: string): Promise<Task> {
+    return this.createTask(`Führe diesen ${language} Code aus:\n\`\`\`${language}\n${code}\n\`\`\``);
+  }
+
+  async runNpm(command: string, cwd?: string): Promise<Task> {
+    const dir = cwd ? ` im Verzeichnis ${cwd}` : '';
+    return this.createTask(`Führe npm ${command}${dir} aus`);
+  }
+
+  // Git Operations
+  async gitStatus(path?: string): Promise<Task> {
+    const dir = path ? ` in ${path}` : '';
+    return this.createTask(`Zeige git status${dir}`);
+  }
+
+  async gitDiff(path?: string): Promise<Task> {
+    const dir = path ? ` in ${path}` : '';
+    return this.createTask(`Zeige git diff${dir}`);
+  }
+
+  async gitLog(count?: number, path?: string): Promise<Task> {
+    const n = count || 10;
+    const dir = path ? ` in ${path}` : '';
+    return this.createTask(`Zeige die letzten ${n} git commits${dir}`);
+  }
+
+  async gitAdd(files: string[]): Promise<Task> {
+    return this.createTask(`Git add: ${files.join(', ')}`);
+  }
+
+  async gitCommit(message: string): Promise<Task> {
+    return this.createTask(`Git commit mit Message: "${message}"`);
+  }
+
+  async gitPush(remote?: string, branch?: string): Promise<Task> {
+    const r = remote || 'origin';
+    const b = branch ? ` ${branch}` : '';
+    return this.createTask(`Git push zu ${r}${b}`);
+  }
+
+  async gitPull(remote?: string, branch?: string): Promise<Task> {
+    const r = remote || 'origin';
+    const b = branch ? ` ${branch}` : '';
+    return this.createTask(`Git pull von ${r}${b}`);
+  }
+
+  async gitBranch(name?: string): Promise<Task> {
+    if (name) {
+      return this.createTask(`Erstelle git branch: ${name}`);
+    }
+    return this.createTask('Liste alle git branches');
+  }
+
+  // Data Operations
+  async parseCsv(content: string): Promise<Task> {
+    return this.createTask(`Parse diese CSV Daten:\n${content}`);
+  }
+
+  async parseJson(content: string): Promise<Task> {
+    return this.createTask(`Parse dieses JSON:\n${content}`);
+  }
+
+  async sqlQuery(query: string): Promise<Task> {
+    return this.createTask(`Führe diese SQL Query aus: ${query}`);
+  }
+
+  async createTempTable(name: string, columns: string[]): Promise<Task> {
+    return this.createTask(`Erstelle temporäre Tabelle ${name} mit Spalten: ${columns.join(', ')}`);
+  }
+
+  async listTables(): Promise<Task> {
+    return this.createTask('Liste alle Datenbank-Tabellen');
+  }
+
+  async aggregateData(table: string, operation: string, column: string): Promise<Task> {
+    return this.createTask(`Berechne ${operation} für Spalte ${column} in Tabelle ${table}`);
+  }
+
+  // Chart Operations
+  async createBarChart(data: unknown[], title: string): Promise<Task> {
+    return this.createTask(`Erstelle ein Balkendiagramm mit Titel "${title}" und diesen Daten: ${JSON.stringify(data)}`);
+  }
+
+  async createLineChart(data: unknown[], title: string): Promise<Task> {
+    return this.createTask(`Erstelle ein Liniendiagramm mit Titel "${title}" und diesen Daten: ${JSON.stringify(data)}`);
+  }
+
+  async createPieChart(data: unknown[], title: string): Promise<Task> {
+    return this.createTask(`Erstelle ein Kreisdiagramm mit Titel "${title}" und diesen Daten: ${JSON.stringify(data)}`);
+  }
+
+  async createScatterPlot(data: unknown[], title: string): Promise<Task> {
+    return this.createTask(`Erstelle ein Streudiagramm mit Titel "${title}" und diesen Daten: ${JSON.stringify(data)}`);
+  }
+
+  async createHistogram(data: unknown[], title: string): Promise<Task> {
+    return this.createTask(`Erstelle ein Histogramm mit Titel "${title}" und diesen Daten: ${JSON.stringify(data)}`);
+  }
+
+  // Web Search
+  async webSearch(query: string): Promise<Task> {
+    return this.createTask(`Suche im Internet nach: ${query}`);
   }
 }
 

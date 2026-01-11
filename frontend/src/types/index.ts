@@ -164,6 +164,63 @@ export interface ChatMessage {
   isStreaming?: boolean;
 }
 
+// Tool Types
+export interface ToolResult {
+  success: boolean;
+  data?: unknown;
+  error?: string;
+}
+
+export interface FileReadResult {
+  content: string;
+  path: string;
+  size: number;
+}
+
+export interface FileListResult {
+  files: Array<{
+    name: string;
+    path: string;
+    isDirectory: boolean;
+    size: number;
+    modified: string;
+  }>;
+}
+
+export interface CodeExecuteResult {
+  output: string;
+  error?: string;
+  exitCode: number;
+}
+
+export interface GitStatusResult {
+  branch: string;
+  staged: string[];
+  unstaged: string[];
+  untracked: string[];
+}
+
+export interface GitLogResult {
+  commits: Array<{
+    hash: string;
+    author: string;
+    date: string;
+    message: string;
+  }>;
+}
+
+export interface SqlQueryResult {
+  columns: string[];
+  rows: unknown[][];
+  rowCount: number;
+}
+
+export interface ChartResult {
+  type: 'bar' | 'line' | 'pie' | 'scatter' | 'histogram';
+  imageUrl?: string;
+  svgData?: string;
+}
+
 // API Response Types
 export interface ApiResponse<T> {
   success: boolean;
