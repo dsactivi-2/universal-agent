@@ -25,7 +25,8 @@ export default function ChatPage() {
     setStreamingText,
     appendStreamingText,
     selectedAgent,
-    setSelectedAgent
+    setSelectedAgent,
+    addNotification
   } = useAppStore();
 
   // WebSocket for streaming
@@ -44,6 +45,11 @@ export default function ChatPage() {
       }
       setStreamingText('');
       setIsLoading(false);
+      addNotification({
+        type: 'success',
+        title: 'Task Completed',
+        message: 'Your AI assistant has finished processing.'
+      });
     },
     onTaskFailed: (taskId, error) => {
       addChatMessage({
@@ -54,6 +60,11 @@ export default function ChatPage() {
       });
       setStreamingText('');
       setIsLoading(false);
+      addNotification({
+        type: 'error',
+        title: 'Task Failed',
+        message: error
+      });
     },
     onToolCall: (taskId, toolCall) => {
       // Could show tool calls in UI
