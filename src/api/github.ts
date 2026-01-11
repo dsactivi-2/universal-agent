@@ -300,7 +300,7 @@ export function createGitHubRoutes(storage: GitHubStorage): Router {
   // FILES
   // ============================================================
 
-  router.get('/repos/:owner/:repo/contents/*', async (req: AuthenticatedRequest, res: Response) => {
+  router.get('/repos/:owner/:repo/contents', async (req: AuthenticatedRequest, res: Response) => {
     const userId = req.userId!;
     const tokenData = storage.getToken(userId);
 
@@ -311,7 +311,7 @@ export function createGitHubRoutes(storage: GitHubStorage): Router {
 
     try {
       const { owner, repo } = req.params;
-      const path = req.params[0] || '';
+      const path = (req.query.path as string) || '';
       const { ref } = req.query;
 
       let endpoint = `/repos/${owner}/${repo}/contents/${path}`;

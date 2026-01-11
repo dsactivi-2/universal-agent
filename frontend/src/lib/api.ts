@@ -428,8 +428,11 @@ class ApiClient {
   }
 
   async githubContents(owner: string, repo: string, path: string = '', ref?: string): Promise<GitHubContent | GitHubContent[]> {
-    const query = ref ? `?ref=${ref}` : '';
-    return this.request(`/api/github/repos/${owner}/${repo}/contents/${path}${query}`);
+    const params = new URLSearchParams();
+    if (path) params.set('path', path);
+    if (ref) params.set('ref', ref);
+    const query = params.toString();
+    return this.request(`/api/github/repos/${owner}/${repo}/contents${query ? '?' + query : ''}`);
   }
 
   async githubCommits(owner: string, repo: string, params?: { sha?: string; per_page?: number }): Promise<GitHubCommit[]> {

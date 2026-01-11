@@ -577,7 +577,7 @@ Endpoints:
   POST /api/github/disconnect      - Disconnect GitHub
   GET  /api/github/repos           - List repositories
   GET  /api/github/repos/:o/:r/branches - List branches
-  GET  /api/github/repos/:o/:r/contents/* - Get file/folder
+  GET  /api/github/repos/:o/:r/contents?path= - Get file/folder
   GET  /api/github/repos/:o/:r/commits - List commits
 
 WebSocket: ws://localhost:${port}?token=JWT
