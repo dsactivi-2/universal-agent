@@ -403,9 +403,10 @@ export class Orchestrator {
     }
 
     try {
+      // Use full message (includes language instruction) rather than just primaryGoal
       const output = await agent.execute(
-        { type: 'web_research', params: { topic: intent.primaryGoal, depth: 'quick' } },
-        { topic: intent.primaryGoal },
+        { type: 'web_research', params: { topic: message, depth: 'quick' } },
+        { topic: message },
         callbacks
       );
 
