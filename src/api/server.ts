@@ -11,8 +11,10 @@ import { v4 as uuid } from 'uuid';
 
 import { UniversalAgent } from '../index.js';
 import { Brain } from '../memory/brain.js';
+import { Scheduler } from '../scheduler/scheduler.js';
+import { WorkflowEngine } from '../workflow/engine.js';
 import type { LogEntry, ToolCallRecord, ExecutionCallbacks } from '../types/index.js';
-import { createAdditionalRoutes } from './routes.js';
+import { createAdditionalRoutes, WorkflowStorage } from './routes.js';
 
 // ============================================================
 // TYPES
@@ -44,6 +46,9 @@ export class APIServer {
   private wss: WebSocketServer;
   private agent: UniversalAgent;
   private brain: Brain;
+  private scheduler: Scheduler;
+  private workflowEngine: WorkflowEngine;
+  private workflowStorage: WorkflowStorage;
   private jwtSecret: string;
   private wsClients: Map<string, WSClient> = new Map();
   private activeTasks: Map<string, { cancel: () => void }> = new Map();
@@ -52,10 +57,46 @@ export class APIServer {
     jwtSecret?: string;
     dbPath?: string;
     memoryDbPath?: string;
+    schedulerDbPath?: string;
+    workflowDbPath?: string;
   }) {
     this.jwtSecret = config?.jwtSecret || process.env.JWT_SECRET || 'dev-secret-change-in-production';
     this.agent = new UniversalAgent({ dbPath: config?.dbPath });
     this.brain = new Brain({ dbPath: config?.memoryDbPath });
+
+    // Initialize Scheduler
+    this.scheduler = new Scheduler({ dbPath: config?.schedulerDbPath });
+    this.scheduler.setAgent(this.agent);
+
+    // Initialize Workflow Engine
+    this.workflowEngine = new WorkflowEngine();
+    this.workflowStorage = new WorkflowStorage(config?.workflowDbPath);
+
+    // Register default agent adapter for workflows
+    this.workflowEngine.registerAgent('default', {
+      execute: async (task: string) => {
+        const result = await this.agent.run(task);
+        return { output: result.summary || '', status: result.status };
+      }
+    });
+    this.workflowEngine.registerAgent('coding', {
+      execute: async (task: string) => {
+        const result = await this.agent.run(task);
+        return { output: result.summary || '', status: result.status };
+      }
+    });
+    this.workflowEngine.registerAgent('research', {
+      execute: async (task: string) => {
+        const result = await this.agent.run(task);
+        return { output: result.summary || '', status: result.status };
+      }
+    });
+    this.workflowEngine.registerAgent('data', {
+      execute: async (task: string) => {
+        const result = await this.agent.run(task);
+        return { output: result.summary || '', status: result.status };
+      }
+    });
 
     this.app = express();
     this.setupMiddleware();
@@ -156,8 +197,14 @@ export class APIServer {
       await this.handleMemoryDelete(req as AuthenticatedRequest, res);
     });
 
-    // Add additional routes for frontend
-    const additionalRoutes = createAdditionalRoutes(this.agent, this.brain);
+    // Add additional routes for frontend with Scheduler and Workflow Engine
+    const additionalRoutes = createAdditionalRoutes(
+      this.agent,
+      this.brain,
+      this.scheduler,
+      this.workflowEngine,
+      this.workflowStorage
+    );
     protectedRouter.use(additionalRoutes);
 
     this.app.use('/api', protectedRouter);
@@ -463,8 +510,12 @@ export class APIServer {
   // LIFECYCLE
   // ============================================================
 
-  start(port: number = 3000): void {
+  start(port: number = 3000, startScheduler: boolean = true): void {
     this.server.listen(port, () => {
+      if (startScheduler) {
+        this.scheduler.start();
+      }
+
       console.log(`
 ╔═══════════════════════════════════════════════════════════╗
 ║        UNIVERSAL AGENT API SERVER                        ║
@@ -472,25 +523,68 @@ export class APIServer {
 ╚═══════════════════════════════════════════════════════════╝
 
 Endpoints:
-  GET  /health           - Health check
-  POST /auth/token       - Get JWT token
-  POST /api/tasks        - Create and run task
-  GET  /api/tasks/:id    - Get task details
-  POST /api/memory       - Store memory
-  GET  /api/memory/search?q=... - Search memories
-  GET  /api/memory/recent - Get recent memories
-  GET  /api/memory/stats  - Memory statistics
-  DEL  /api/memory/:id    - Delete memory
+  GET  /health                     - Health check
+  POST /auth/token                 - Get JWT token
+
+  Tasks:
+  POST /api/tasks                  - Create and run task
+  GET  /api/tasks                  - List all tasks
+  GET  /api/tasks/:id              - Get task details
+  POST /api/tasks/:id/cancel       - Cancel task
+
+  Memory:
+  POST /api/memory                 - Store memory
+  GET  /api/memory                 - List memories
+  GET  /api/memory/:id             - Get memory by ID
+  GET  /api/memory/search?q=...    - Search memories
+  GET  /api/memory/stats           - Memory statistics
+  DEL  /api/memory/:id             - Delete memory
+
+  Scheduler:
+  GET  /api/scheduler/jobs         - List all jobs
+  POST /api/scheduler/jobs         - Create job
+  GET  /api/scheduler/jobs/:id     - Get job details
+  PATCH /api/scheduler/jobs/:id    - Update job
+  DEL  /api/scheduler/jobs/:id     - Delete job
+  POST /api/scheduler/jobs/:id/toggle - Enable/disable job
+  POST /api/scheduler/jobs/:id/run - Run job manually
+  GET  /api/scheduler/jobs/:id/executions - Job history
+
+  Workflows:
+  GET  /api/workflows              - List workflows
+  POST /api/workflows              - Create workflow
+  GET  /api/workflows/:id          - Get workflow
+  PATCH /api/workflows/:id         - Update workflow
+  DEL  /api/workflows/:id          - Delete workflow
+  POST /api/workflows/:id/execute  - Execute workflow
+  GET  /api/workflows/:id/executions - Execution history
+  GET  /api/workflow-templates     - Get templates
+
+  Agents:
+  GET  /api/agents                 - List available agents
+
+  Stats:
+  GET  /api/stats                  - System statistics
 
 WebSocket: ws://localhost:${port}?token=JWT
+Scheduler: ${startScheduler ? 'ACTIVE' : 'DISABLED'}
 `);
     });
   }
 
   stop(): void {
+    this.scheduler.stop();
     this.wss.close();
     this.server.close();
     this.agent.close();
     this.brain.close();
+    this.scheduler.close();
+    this.workflowStorage.close();
+  }
+
+  // Start the scheduler when server starts
+  startScheduler(): void {
+    this.scheduler.start();
+    console.log('Scheduler started');
   }
 }

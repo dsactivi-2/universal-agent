@@ -218,6 +218,10 @@ export class Brain {
     return this.store.getByTag(userId, tag, limit);
   }
 
+  getById(id: string): MemoryEntry | null {
+    return this.store.get(id);
+  }
+
   // ============================================================
   // FORGET - Remove memories
   // ============================================================

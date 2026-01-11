@@ -208,6 +208,12 @@ class ApiClient {
     return this.request<JobExecution[]>(`/api/scheduler/jobs/${jobId}/executions?limit=${limit}`);
   }
 
+  async runJob(jobId: string): Promise<JobExecution> {
+    return this.request<JobExecution>(`/api/scheduler/jobs/${jobId}/run`, {
+      method: 'POST'
+    });
+  }
+
   // ============================================================
   // WORKFLOWS
   // ============================================================
@@ -243,6 +249,14 @@ class ApiClient {
       method: 'POST',
       body: JSON.stringify({ input })
     });
+  }
+
+  async getWorkflowExecutions(workflowId: string, limit = 10): Promise<WorkflowExecution[]> {
+    return this.request<WorkflowExecution[]>(`/api/workflows/${workflowId}/executions?limit=${limit}`);
+  }
+
+  async getWorkflowTemplates(): Promise<Workflow[]> {
+    return this.request<Workflow[]>('/api/workflow-templates');
   }
 
   // ============================================================
