@@ -401,6 +401,80 @@ class ApiClient {
   async webSearch(query: string): Promise<Task> {
     return this.createTask(`Suche im Internet nach: ${query}`);
   }
+
+  // ============================================================
+  // GITHUB OAUTH
+  // ============================================================
+
+  async githubGetAuthUrl(): Promise<{ authUrl: string }> {
+    return this.request<{ authUrl: string }>('/api/github/auth');
+  }
+
+  async githubStatus(): Promise<{ connected: boolean; login?: string; avatar?: string }> {
+    return this.request('/api/github/status');
+  }
+
+  async githubDisconnect(): Promise<{ success: boolean }> {
+    return this.request('/api/github/disconnect', { method: 'POST' });
+  }
+
+  async githubRepos(params?: { sort?: string; per_page?: number; page?: number }): Promise<GitHubRepo[]> {
+    const query = params ? new URLSearchParams(params as Record<string, string>).toString() : '';
+    return this.request<GitHubRepo[]>(`/api/github/repos${query ? '?' + query : ''}`);
+  }
+
+  async githubBranches(owner: string, repo: string): Promise<GitHubBranch[]> {
+    return this.request<GitHubBranch[]>(`/api/github/repos/${owner}/${repo}/branches`);
+  }
+
+  async githubContents(owner: string, repo: string, path: string = '', ref?: string): Promise<GitHubContent | GitHubContent[]> {
+    const query = ref ? `?ref=${ref}` : '';
+    return this.request(`/api/github/repos/${owner}/${repo}/contents/${path}${query}`);
+  }
+
+  async githubCommits(owner: string, repo: string, params?: { sha?: string; per_page?: number }): Promise<GitHubCommit[]> {
+    const query = params ? new URLSearchParams(params as Record<string, string>).toString() : '';
+    return this.request<GitHubCommit[]>(`/api/github/repos/${owner}/${repo}/commits${query ? '?' + query : ''}`);
+  }
+}
+
+// GitHub Types
+export interface GitHubRepo {
+  id: number;
+  name: string;
+  fullName: string;
+  description: string;
+  private: boolean;
+  url: string;
+  cloneUrl: string;
+  defaultBranch: string;
+  language: string;
+  stars: number;
+  forks: number;
+  updatedAt: string;
+}
+
+export interface GitHubBranch {
+  name: string;
+  protected: boolean;
+  sha: string;
+}
+
+export interface GitHubContent {
+  name: string;
+  path: string;
+  type: 'file' | 'dir';
+  size: number;
+  sha: string;
+  content?: string;
+}
+
+export interface GitHubCommit {
+  sha: string;
+  message: string;
+  author: string;
+  date: string;
+  url: string;
 }
 
 export const api = new ApiClient();

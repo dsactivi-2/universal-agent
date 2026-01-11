@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import { cn } from '@/lib/utils';
-import { FileTools, CodeTools, GitTools, DataTools, ChartTools } from '@/components/tools';
+import { FileTools, CodeTools, GitTools, DataTools, ChartTools, GitHubTools } from '@/components/tools';
 import {
   File,
   Code,
@@ -10,7 +10,8 @@ import {
   Database,
   BarChart3,
   Search,
-  Wrench
+  Wrench,
+  Github
 } from 'lucide-react';
 import { Card } from '@/components/ui/Card';
 import { Input } from '@/components/ui/Input';
@@ -21,6 +22,7 @@ const TABS = [
   { id: 'file', label: 'Dateien', icon: File },
   { id: 'code', label: 'Code', icon: Code },
   { id: 'git', label: 'Git', icon: GitBranch },
+  { id: 'github', label: 'GitHub', icon: Github },
   { id: 'data', label: 'Daten', icon: Database },
   { id: 'chart', label: 'Diagramme', icon: BarChart3 }
 ];
@@ -51,6 +53,8 @@ export default function ToolsPage() {
         return <CodeTools />;
       case 'git':
         return <GitTools />;
+      case 'github':
+        return <GitHubTools />;
       case 'data':
         return <DataTools />;
       case 'chart':

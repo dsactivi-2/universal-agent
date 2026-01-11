@@ -15,6 +15,7 @@ import { Scheduler } from '../scheduler/scheduler.js';
 import { WorkflowEngine } from '../workflow/engine.js';
 import type { LogEntry, ToolCallRecord, ExecutionCallbacks } from '../types/index.js';
 import { createAdditionalRoutes, WorkflowStorage } from './routes.js';
+import { GitHubStorage, createGitHubRoutes } from './github.js';
 
 // ============================================================
 // TYPES
@@ -49,6 +50,7 @@ export class APIServer {
   private scheduler: Scheduler;
   private workflowEngine: WorkflowEngine;
   private workflowStorage: WorkflowStorage;
+  private githubStorage: GitHubStorage;
   private jwtSecret: string;
   private wsClients: Map<string, WSClient> = new Map();
   private activeTasks: Map<string, { cancel: () => void }> = new Map();
@@ -71,6 +73,9 @@ export class APIServer {
     // Initialize Workflow Engine
     this.workflowEngine = new WorkflowEngine();
     this.workflowStorage = new WorkflowStorage(config?.workflowDbPath);
+
+    // Initialize GitHub Storage
+    this.githubStorage = new GitHubStorage(config?.dbPath ? config.dbPath.replace('.db', '-github.db') : './data/github.db');
 
     // Register default agent adapter for workflows
     this.workflowEngine.registerAgent('default', {
@@ -206,6 +211,10 @@ export class APIServer {
       this.workflowStorage
     );
     protectedRouter.use(additionalRoutes);
+
+    // Add GitHub OAuth routes
+    const githubRoutes = createGitHubRoutes(this.githubStorage);
+    protectedRouter.use('/github', githubRoutes);
 
     this.app.use('/api', protectedRouter);
   }
@@ -561,6 +570,16 @@ Endpoints:
   Stats:
   GET  /api/stats                  - System statistics
 
+  GitHub:
+  GET  /api/github/auth            - Get GitHub OAuth URL
+  GET  /api/github/callback        - OAuth callback (internal)
+  GET  /api/github/status          - Check connection status
+  POST /api/github/disconnect      - Disconnect GitHub
+  GET  /api/github/repos           - List repositories
+  GET  /api/github/repos/:o/:r/branches - List branches
+  GET  /api/github/repos/:o/:r/contents/* - Get file/folder
+  GET  /api/github/repos/:o/:r/commits - List commits
+
 WebSocket: ws://localhost:${port}?token=JWT
 Scheduler: ${startScheduler ? 'ACTIVE' : 'DISABLED'}
 `);
@@ -575,6 +594,7 @@ Scheduler: ${startScheduler ? 'ACTIVE' : 'DISABLED'}
     this.brain.close();
     this.scheduler.close();
     this.workflowStorage.close();
+    this.githubStorage.close();
   }
 
   // Start the scheduler when server starts
