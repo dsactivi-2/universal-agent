@@ -164,7 +164,7 @@ export default function SettingsPage() {
                   <p className="text-sm font-medium text-dark-900 dark:text-white">
                     SQLite Database
                   </p>
-                  <p className="text-xs text-dark-500">./data/agent.db</p>
+                  <p className="text-xs text-dark-500 font-mono">/root/universal-agent/data/agent.db</p>
                 </div>
               </div>
               <span className="text-xs text-green-500">Connected</span>
