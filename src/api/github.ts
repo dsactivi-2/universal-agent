@@ -125,33 +125,14 @@ async function githubFetch<T>(endpoint: string, token: string, options: RequestI
 // ROUTES
 // ============================================================
 
-export function createGitHubRoutes(storage: GitHubStorage): Router {
+// Public callback route (no auth required)
+export function createGitHubCallbackRoute(storage: GitHubStorage): Router {
   const router = Router();
 
   const clientId = process.env.GITHUB_CLIENT_ID;
   const clientSecret = process.env.GITHUB_CLIENT_SECRET;
   const redirectUri = process.env.GITHUB_REDIRECT_URI || 'http://localhost:3001/api/github/callback';
 
-  // ============================================================
-  // OAUTH FLOW
-  // ============================================================
-
-  // Step 1: Redirect to GitHub
-  router.get('/auth', (req: AuthenticatedRequest, res: Response) => {
-    if (!clientId) {
-      res.status(500).json({ error: 'GitHub OAuth not configured' });
-      return;
-    }
-
-    const state = req.userId || 'anonymous';
-    const scope = 'repo read:user user:email';
-
-    const authUrl = `https://github.com/login/oauth/authorize?client_id=${clientId}&redirect_uri=${encodeURIComponent(redirectUri)}&scope=${encodeURIComponent(scope)}&state=${state}`;
-
-    res.json({ authUrl });
-  });
-
-  // Step 2: Handle callback from GitHub
   router.get('/callback', async (req: Request, res: Response) => {
     const { code, state } = req.query;
 
@@ -195,6 +176,36 @@ export function createGitHubRoutes(storage: GitHubStorage): Router {
       console.error('GitHub OAuth error:', error);
       res.redirect(`${process.env.FRONTEND_URL || 'http://localhost:3000'}/tools?error=github_auth_failed`);
     }
+  });
+
+  return router;
+}
+
+// Protected routes (auth required)
+export function createGitHubRoutes(storage: GitHubStorage): Router {
+  const router = Router();
+
+  const clientId = process.env.GITHUB_CLIENT_ID;
+  const clientSecret = process.env.GITHUB_CLIENT_SECRET;
+  const redirectUri = process.env.GITHUB_REDIRECT_URI || 'http://localhost:3001/api/github/callback';
+
+  // ============================================================
+  // OAUTH FLOW
+  // ============================================================
+
+  // Get GitHub OAuth URL
+  router.get('/auth', (req: AuthenticatedRequest, res: Response) => {
+    if (!clientId) {
+      res.status(500).json({ error: 'GitHub OAuth not configured' });
+      return;
+    }
+
+    const state = req.userId || 'anonymous';
+    const scope = 'repo read:user user:email';
+
+    const authUrl = `https://github.com/login/oauth/authorize?client_id=${clientId}&redirect_uri=${encodeURIComponent(redirectUri)}&scope=${encodeURIComponent(scope)}&state=${state}`;
+
+    res.json({ authUrl });
   });
 
   // ============================================================

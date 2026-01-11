@@ -15,7 +15,7 @@ import { Scheduler } from '../scheduler/scheduler.js';
 import { WorkflowEngine } from '../workflow/engine.js';
 import type { LogEntry, ToolCallRecord, ExecutionCallbacks } from '../types/index.js';
 import { createAdditionalRoutes, WorkflowStorage } from './routes.js';
-import { GitHubStorage, createGitHubRoutes } from './github.js';
+import { GitHubStorage, createGitHubRoutes, createGitHubCallbackRoute } from './github.js';
 
 // ============================================================
 // TYPES
@@ -167,6 +167,10 @@ export class APIServer {
       const token = jwt.sign({ userId }, this.jwtSecret, { expiresIn: '24h' });
       res.json({ token, expiresIn: 86400 });
     });
+
+    // Public GitHub callback (no auth required)
+    const githubCallbackRoute = createGitHubCallbackRoute(this.githubStorage);
+    this.app.use('/api/github', githubCallbackRoute);
 
     // Protected routes
     const protectedRouter = express.Router();
