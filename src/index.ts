@@ -5,11 +5,13 @@
 import { StateManager } from './db/state-manager.js';
 import { ToolRegistry } from './tools/registry.js';
 import { WebSearchTool } from './tools/web-search.js';
+import { Brain } from './memory/brain.js';
 import { Orchestrator, type OrchestratorConfig, type ExecutionResult } from './core/orchestrator.js';
 import type { LogEntry, ToolCallRecord, ExecutionCallbacks } from './types/index.js';
 
 export interface UniversalAgentConfig {
   dbPath?: string;
+  memoryDbPath?: string;
   tavilyApiKey?: string;
   orchestrator?: Partial<OrchestratorConfig>;
 }
@@ -17,19 +19,24 @@ export interface UniversalAgentConfig {
 export class UniversalAgent {
   private orchestrator: Orchestrator;
   private stateManager: StateManager;
+  private brain: Brain;
 
   constructor(config?: UniversalAgentConfig) {
     // Initialize state manager
     this.stateManager = new StateManager(config?.dbPath);
 
+    // Initialize brain (memory)
+    this.brain = new Brain({ dbPath: config?.memoryDbPath });
+
     // Initialize tool registry
     const toolRegistry = new ToolRegistry();
     toolRegistry.register(new WebSearchTool(config?.tavilyApiKey));
 
-    // Initialize orchestrator
+    // Initialize orchestrator with brain
     this.orchestrator = new Orchestrator(
       this.stateManager,
       toolRegistry,
+      this.brain,
       config?.orchestrator
     );
   }
@@ -37,6 +44,8 @@ export class UniversalAgent {
   async run(
     message: string,
     options?: {
+      userId?: string;
+      language?: string;
       onLog?: (log: LogEntry) => void;
       onToolCall?: (call: ToolCallRecord) => void;
       onProgress?: (phase: string, progress: number) => void;
@@ -53,15 +62,25 @@ export class UniversalAgent {
       onProgress: options?.onProgress
     };
 
-    return this.orchestrator.handleMessage(message, callbacks);
+    return this.orchestrator.handleMessage(
+      message,
+      callbacks,
+      options?.userId || 'default',
+      options?.language || 'de'
+    );
   }
 
   getStateManager(): StateManager {
     return this.stateManager;
   }
 
+  getBrain(): Brain {
+    return this.brain;
+  }
+
   close(): void {
     this.stateManager.close();
+    this.brain.close();
   }
 }
 

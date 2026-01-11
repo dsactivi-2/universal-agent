@@ -223,29 +223,12 @@ export class APIServer {
       return;
     }
 
-    // Build message with language instruction if specified
-    let fullMessage = message;
-    if (language) {
-      const langInstructions: Record<string, string> = {
-        'de': 'WICHTIG: Antworte IMMER auf Deutsch. ',
-        'en': 'IMPORTANT: Always respond in English. ',
-        'bs': 'VAŽNO: Uvijek odgovaraj na bosanskom jeziku. '
-      };
-      const instruction = langInstructions[language] || '';
-      fullMessage = instruction + message;
-    }
-
     try {
-      // Remember the user message
-      await this.brain.rememberConversation(userId, 'user', message);
-
-      // Execute task (synchronous for REST API)
-      const result = await this.agent.run(fullMessage);
-
-      // Remember the result
-      if (result.summary) {
-        await this.brain.rememberConversation(userId, 'assistant', result.summary);
-      }
+      // Execute task with Chat Agent (handles memory internally)
+      const result = await this.agent.run(message, {
+        userId,
+        language: language || 'de'
+      });
 
       res.json({
         taskId: result.taskId,

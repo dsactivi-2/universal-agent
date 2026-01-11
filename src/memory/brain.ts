@@ -408,6 +408,10 @@ Focus on:
     return Math.min(1, Math.max(0, importance));
   }
 
+  getStore(): MemoryStore {
+    return this.store;
+  }
+
   close(): void {
     this.store.close();
   }

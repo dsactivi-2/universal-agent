@@ -20,7 +20,8 @@ import { Planner } from './planner.js';
 import { StateManager } from '../db/state-manager.js';
 import { AgentRegistry } from '../agents/registry.js';
 import { ToolRegistry } from '../tools/registry.js';
-import { AnthropicProvider } from '../providers/anthropic.js';
+import { Brain } from '../memory/brain.js';
+import type { ConversationMessage } from '../agents/chat-agent.js';
 
 export interface OrchestratorConfig {
   maxConcurrentSteps: number;
@@ -43,15 +44,18 @@ export class Orchestrator {
   private stateManager: StateManager;
   private agentRegistry: AgentRegistry;
   private toolRegistry: ToolRegistry;
+  private brain: Brain;
   private config: OrchestratorConfig;
 
   constructor(
     stateManager: StateManager,
     toolRegistry: ToolRegistry,
+    brain: Brain,
     config?: Partial<OrchestratorConfig>
   ) {
     this.stateManager = stateManager;
     this.toolRegistry = toolRegistry;
+    this.brain = brain;
     this.agentRegistry = new AgentRegistry(toolRegistry);
     this.planner = new Planner(this.agentRegistry);
 
@@ -70,7 +74,8 @@ export class Orchestrator {
   async handleMessage(
     message: string,
     callbacks: ExecutionCallbacks,
-    userId: string = 'default'
+    userId: string = 'default',
+    language: string = 'de'
   ): Promise<ExecutionResult> {
     const startTime = Date.now();
     let taskId: string | undefined;
@@ -92,8 +97,8 @@ export class Orchestrator {
       }
 
       if (intent.type === 'simple_query') {
-        // Simple queries don't need full task processing
-        return this.handleSimpleQuery(message, intent, callbacks, startTime);
+        // Use Chat Agent with memory for all simple queries
+        return this.handleWithChatAgent(message, userId, language, callbacks, startTime);
       }
 
       // 3. Create task
@@ -384,37 +389,48 @@ export class Orchestrator {
   // SIMPLE QUERY HANDLING
   // ============================================================
 
-  private async handleSimpleQuery(
+  private async handleWithChatAgent(
     message: string,
-    intent: { primaryGoal: string },
+    userId: string,
+    language: string,
     callbacks: ExecutionCallbacks,
     startTime: number
   ): Promise<ExecutionResult> {
-    // For simple conversational queries, use direct Claude API call
     try {
-      const provider = new AnthropicProvider();
+      // 1. Load conversation history from memory
+      this.log(callbacks, 'info', 'Loading conversation history...');
+      const recentMemories = this.brain.getStore().getRecent(userId, 10, ['conversation']);
 
-      // The message already contains language instruction if specified
-      const response = await provider.chat({
-        system: `You are a helpful AI assistant. Be conversational and friendly.
-If the message contains a language instruction (like "WICHTIG: Antworte IMMER auf Deutsch"),
-you MUST respond in that language. Keep responses concise but helpful.`,
-        messages: [
-          { role: 'user', content: message }
-        ],
-        maxTokens: 1024,
-        temperature: 0.7
-      });
+      const conversationHistory: ConversationMessage[] = recentMemories.map(mem => ({
+        role: (mem.metadata?.source as 'user' | 'assistant') || 'user',
+        content: mem.content,
+        timestamp: mem.createdAt.toISOString()
+      }));
 
-      // Extract text from response
-      const textContent = response.content.find(c => c.type === 'text');
-      const summary = textContent?.text || 'No response generated';
+      this.log(callbacks, 'debug', `Loaded ${conversationHistory.length} previous messages`);
+
+      // 2. Get Chat Agent
+      const chatAgent = this.agentRegistry.getChatAgent();
+
+      // 3. Execute chat with context
+      this.log(callbacks, 'info', 'Processing with Chat Agent...');
+      const result = await chatAgent.executeChat(
+        message,
+        language,
+        conversationHistory,
+        callbacks
+      );
+
+      // 4. Save user message and response to memory
+      this.log(callbacks, 'info', 'Saving to memory...');
+      await this.brain.rememberConversation(userId, 'user', message);
+      await this.brain.rememberConversation(userId, 'assistant', result.response);
 
       const now = new Date();
       const stepResult: StepResult = {
-        stepId: 'simple',
+        stepId: 'chat',
         status: 'success' as StepStatus,
-        output: { summary },
+        output: result,
         startedAt: now,
         completedAt: now,
         duration: Date.now() - startTime,
@@ -424,15 +440,16 @@ you MUST respond in that language. Keep responses concise but helpful.`,
       };
 
       return {
-        taskId: 'simple',
+        taskId: 'chat',
         status: 'completed',
-        results: { simple: stepResult },
-        summary,
+        results: { chat: stepResult },
+        summary: result.response,
         duration: Date.now() - startTime
       };
     } catch (error) {
+      this.log(callbacks, 'error', `Chat Agent failed: ${error}`);
       return {
-        taskId: 'simple',
+        taskId: 'chat',
         status: 'failed',
         results: {},
         error: error instanceof Error ? error.message : String(error),
