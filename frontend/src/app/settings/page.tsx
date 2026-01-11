@@ -9,7 +9,7 @@ import { useAppStore, type Language } from '@/stores/app-store';
 import { Sun, Moon, Monitor, Key, Bell, Database, Shield, Globe } from 'lucide-react';
 
 export default function SettingsPage() {
-  const { theme, setTheme, language, setLanguage } = useAppStore();
+  const { theme, setTheme, language, setLanguage, addNotification } = useAppStore();
   const [apiKey, setApiKey] = useState('');
   const [saving, setSaving] = useState(false);
 
@@ -24,6 +24,16 @@ export default function SettingsPage() {
     { id: 'en' as Language, name: 'English', flag: '🇬🇧' },
     { id: 'bs' as Language, name: 'Bosanski', flag: '🇧🇦' }
   ];
+
+  const handleLanguageChange = (langId: Language) => {
+    setLanguage(langId);
+    const langName = languages.find(l => l.id === langId)?.name || langId;
+    addNotification({
+      type: 'success',
+      title: 'Language Changed',
+      message: `Language set to ${langName}`
+    });
+  };
 
   const handleSaveApiKey = async () => {
     setSaving(true);
@@ -80,7 +90,7 @@ export default function SettingsPage() {
             {languages.map((lang) => (
               <button
                 key={lang.id}
-                onClick={() => setLanguage(lang.id)}
+                onClick={() => handleLanguageChange(lang.id)}
                 className={`flex flex-col items-center gap-2 p-4 rounded-lg border-2 transition-colors ${
                   language === lang.id
                     ? 'border-primary-500 bg-primary-50 dark:bg-primary-900/20'
@@ -92,6 +102,9 @@ export default function SettingsPage() {
                 <span className="text-sm font-medium text-dark-900 dark:text-white">
                   {lang.name}
                 </span>
+                {language === lang.id && (
+                  <span className="text-xs text-primary-500">✓ Active</span>
+                )}
               </button>
             ))}
           </div>
