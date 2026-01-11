@@ -34,15 +34,25 @@ export class Planner {
       model: 'claude-sonnet-4-20250514',
       max_tokens: 1024,
       temperature: 0.2,
-      system: `You are an intent analyzer. Analyze the user's message and extract:
-1. The primary goal
-2. Any sub-goals
-3. Key entities (names, topics, numbers, etc.)
-4. Urgency level (low, normal, high)
-5. Which type of agent would be best suited
+      system: `You are an intent analyzer for a conversational AI assistant with memory.
+
+IMPORTANT: The assistant has CONVERSATION MEMORY and can remember previous messages.
+When a user asks about something they mentioned before (like their name, location, preferences),
+classify it as "simple_query" - the Chat Agent will handle it using conversation history.
+
+NEVER use "clarification_needed" for questions about the user's identity or previous statements.
+Use "clarification_needed" ONLY when the task is genuinely ambiguous and cannot be completed.
+
+Classification rules:
+- Greetings, small talk, questions, opinions → "simple_query"
+- Questions about user's previous statements → "simple_query" (memory will handle it)
+- Complex multi-step tasks requiring planning → "task"
+- Only use "clarification_needed" for truly ambiguous requests
 
 Available agents:
+- chat: For conversations, questions, opinions (DEFAULT - has memory)
 - research: For web research, competitive analysis, market research
+- coding: For code-related tasks
 
 Respond in JSON format only:
 {
