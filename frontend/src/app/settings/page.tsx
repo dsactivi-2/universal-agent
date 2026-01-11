@@ -5,11 +5,11 @@ import { Header } from '@/components/layout/Header';
 import { Card, CardHeader } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
-import { useAppStore } from '@/stores/app-store';
-import { Sun, Moon, Monitor, Key, Bell, Database, Shield } from 'lucide-react';
+import { useAppStore, type Language } from '@/stores/app-store';
+import { Sun, Moon, Monitor, Key, Bell, Database, Shield, Globe } from 'lucide-react';
 
 export default function SettingsPage() {
-  const { theme, setTheme } = useAppStore();
+  const { theme, setTheme, language, setLanguage } = useAppStore();
   const [apiKey, setApiKey] = useState('');
   const [saving, setSaving] = useState(false);
 
@@ -17,6 +17,12 @@ export default function SettingsPage() {
     { id: 'light', name: 'Light', icon: Sun },
     { id: 'dark', name: 'Dark', icon: Moon },
     { id: 'system', name: 'System', icon: Monitor }
+  ];
+
+  const languages = [
+    { id: 'de' as Language, name: 'Deutsch', flag: '🇩🇪' },
+    { id: 'en' as Language, name: 'English', flag: '🇬🇧' },
+    { id: 'bs' as Language, name: 'Bosanski', flag: '🇧🇦' }
   ];
 
   const handleSaveApiKey = async () => {
@@ -52,6 +58,7 @@ export default function SettingsPage() {
                       ? 'border-primary-500 bg-primary-50 dark:bg-primary-900/20'
                       : 'border-dark-200 dark:border-dark-700 hover:border-dark-300 dark:hover:border-dark-600'
                   }`}
+                  data-testid={`settings_button_theme_${t.id}`}
                 >
                   <Icon className="w-6 h-6 text-dark-600 dark:text-dark-400" />
                   <span className="text-sm font-medium text-dark-900 dark:text-white">
@@ -60,6 +67,33 @@ export default function SettingsPage() {
                 </button>
               );
             })}
+          </div>
+        </Card>
+
+        {/* Language */}
+        <Card>
+          <CardHeader
+            title="Language"
+            subtitle="Choose your preferred language"
+          />
+          <div className="grid grid-cols-3 gap-3">
+            {languages.map((lang) => (
+              <button
+                key={lang.id}
+                onClick={() => setLanguage(lang.id)}
+                className={`flex flex-col items-center gap-2 p-4 rounded-lg border-2 transition-colors ${
+                  language === lang.id
+                    ? 'border-primary-500 bg-primary-50 dark:bg-primary-900/20'
+                    : 'border-dark-200 dark:border-dark-700 hover:border-dark-300 dark:hover:border-dark-600'
+                }`}
+                data-testid={`settings_button_language_${lang.id}`}
+              >
+                <span className="text-2xl">{lang.flag}</span>
+                <span className="text-sm font-medium text-dark-900 dark:text-white">
+                  {lang.name}
+                </span>
+              </button>
+            ))}
           </div>
         </Card>
 

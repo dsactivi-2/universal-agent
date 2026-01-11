@@ -15,10 +15,16 @@ export interface Notification {
   read: boolean;
 }
 
+export type Language = 'de' | 'en' | 'bs';
+
 interface AppState {
   // Theme
   theme: 'light' | 'dark' | 'system';
   setTheme: (theme: 'light' | 'dark' | 'system') => void;
+
+  // Language
+  language: Language;
+  setLanguage: (language: Language) => void;
 
   // Sidebar
   sidebarOpen: boolean;
@@ -66,6 +72,10 @@ export const useAppStore = create<AppState>()(
       // Theme
       theme: 'dark',
       setTheme: (theme) => set({ theme }),
+
+      // Language
+      language: 'de',
+      setLanguage: (language) => set({ language }),
 
       // Sidebar
       sidebarOpen: true,
@@ -138,6 +148,7 @@ export const useAppStore = create<AppState>()(
       name: 'universal-agent-storage',
       partialize: (state) => ({
         theme: state.theme,
+        language: state.language,
         sidebarOpen: state.sidebarOpen,
         selectedAgent: state.selectedAgent
       })
