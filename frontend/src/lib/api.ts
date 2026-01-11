@@ -67,11 +67,19 @@ class ApiClient {
   // AUTH
   // ============================================================
 
-  async login(email: string, password: string): Promise<{ token: string }> {
-    const result = await this.request<{ token: string }>('/api/auth/login', {
+  async login(userId: string): Promise<{ token: string }> {
+    // Backend uses /auth/token (outside /api prefix)
+    const response = await fetch(`${API_BASE}/auth/token`, {
       method: 'POST',
-      body: JSON.stringify({ email, password })
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ userId })
     });
+
+    if (!response.ok) {
+      throw new Error('Authentication failed');
+    }
+
+    const result = await response.json();
     this.setToken(result.token);
     return result;
   }
@@ -90,7 +98,7 @@ class ApiClient {
   async createTask(prompt: string, agentId?: string): Promise<Task> {
     return this.request<Task>('/api/tasks', {
       method: 'POST',
-      body: JSON.stringify({ prompt, agentId })
+      body: JSON.stringify({ message: prompt, agentId })
     });
   }
 

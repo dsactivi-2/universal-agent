@@ -130,8 +130,21 @@ export function createAdditionalRoutes(
   });
 
   // ============================================================
-  // MEMORY (LIST)
+  // MEMORY (LIST + GET BY ID)
   // ============================================================
+
+  router.get('/memory/:id', async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const { id } = req.params;
+      // Brain doesn't have getById, so search by id in metadata
+      // For now return 404 as this needs brain.getMemoryById implementation
+      res.status(404).json({ error: 'Memory not found or method not implemented' });
+    } catch (error) {
+      res.status(500).json({
+        error: error instanceof Error ? error.message : 'Failed to get memory'
+      });
+    }
+  });
 
   router.get('/memory', async (req: AuthenticatedRequest, res: Response) => {
     try {
@@ -191,6 +204,10 @@ export function createAdditionalRoutes(
     res.status(404).json({ error: 'Job not found' });
   });
 
+  router.patch('/scheduler/jobs/:id', (req: AuthenticatedRequest, res: Response) => {
+    res.status(501).json({ error: 'Scheduler not configured' });
+  });
+
   router.delete('/scheduler/jobs/:id', (req: AuthenticatedRequest, res: Response) => {
     res.status(404).json({ error: 'Job not found' });
   });
@@ -217,6 +234,10 @@ export function createAdditionalRoutes(
 
   router.get('/workflows/:id', (req: AuthenticatedRequest, res: Response) => {
     res.status(404).json({ error: 'Workflow not found' });
+  });
+
+  router.patch('/workflows/:id', (req: AuthenticatedRequest, res: Response) => {
+    res.status(501).json({ error: 'Workflow engine not configured' });
   });
 
   router.delete('/workflows/:id', (req: AuthenticatedRequest, res: Response) => {
