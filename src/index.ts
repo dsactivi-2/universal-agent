@@ -3,8 +3,7 @@
 // ============================================================
 
 import { StateManager } from './db/state-manager.js';
-import { ToolRegistry } from './tools/registry.js';
-import { WebSearchTool } from './tools/web-search.js';
+import { createDefaultToolRegistry } from './tools/index.js';
 import { Brain } from './memory/brain.js';
 import { Orchestrator, type OrchestratorConfig, type ExecutionResult } from './core/orchestrator.js';
 import type { LogEntry, ToolCallRecord, ExecutionCallbacks } from './types/index.js';
@@ -28,9 +27,8 @@ export class UniversalAgent {
     // Initialize brain (memory)
     this.brain = new Brain({ dbPath: config?.memoryDbPath });
 
-    // Initialize tool registry
-    const toolRegistry = new ToolRegistry();
-    toolRegistry.register(new WebSearchTool(config?.tavilyApiKey));
+    // Initialize tool registry with ALL tools
+    const toolRegistry = createDefaultToolRegistry();
 
     // Initialize orchestrator with brain
     this.orchestrator = new Orchestrator(

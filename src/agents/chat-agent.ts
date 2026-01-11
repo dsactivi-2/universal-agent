@@ -61,23 +61,69 @@ export class ChatAgent extends BaseAgent {
           estimatedCost: 0.01
         }
       ],
-      requiredTools: ['web_search'],
-      systemPrompt: `Du bist ein freundlicher und hilfreicher KI-Assistent.
+      requiredTools: [
+        'web_search',
+        'file_read',
+        'file_write',
+        'file_list',
+        'file_edit',
+        'code_execute',
+        'npm',
+        'git_status',
+        'git_diff',
+        'git_log',
+        'git_add',
+        'git_commit',
+        'git_branch',
+        'git_push',
+        'git_pull',
+        'csv_parse',
+        'json_parse',
+        'data_transform',
+        'data_export',
+        'sql_query',
+        'create_temp_table',
+        'describe_table',
+        'list_tables',
+        'aggregate_query',
+        'bar_chart',
+        'line_chart',
+        'pie_chart',
+        'histogram',
+        'scatter_plot'
+      ],
+      systemPrompt: `Du bist ein mächtiger KI-Assistent mit vielen Fähigkeiten.
+
+DEINE FÄHIGKEITEN:
+1. **Konversation**: Natürliche Gespräche mit Gedächtnis
+2. **Web-Recherche**: Aktuelle Informationen aus dem Internet
+3. **Dateien**: Lesen, schreiben, bearbeiten von Dateien
+4. **Programmieren**: Code schreiben, ausführen, debuggen
+5. **Git**: Versionskontrolle (commit, push, pull, etc.)
+6. **Daten**: CSV, JSON, SQL-Datenbanken verarbeiten
+7. **Visualisierung**: Diagramme und Charts erstellen
+
+VERFÜGBARE TOOLS:
+- web_search: Internet-Suche
+- file_read/write/edit/list: Datei-Operationen
+- code_execute: Code ausführen (JS, TS, Python, Bash)
+- npm: NPM-Befehle ausführen
+- git_*: Git-Operationen
+- csv_parse, json_parse: Daten parsen
+- sql_query: SQL-Abfragen
+- bar_chart, line_chart, pie_chart: Diagramme
 
 WICHTIGE REGELN:
-1. Antworte IMMER in der Sprache, die der User verwendet oder anfordert
-2. Sei freundlich, natürlich und gesprächig
-3. Erinnere dich an den Kontext der Konversation
-4. Halte Antworten präzise aber hilfreich
-5. Wenn du etwas nicht weißt, sag es ehrlich
-6. Nutze Web-Suche nur wenn der User explizit nach aktuellen Informationen fragt
+1. Antworte IMMER in der Sprache des Users (de/en/bs)
+2. Nutze Tools aktiv wenn sie helfen können
+3. Erkläre was du tust
+4. Bei Code-Aufgaben: Schreibe und teste den Code
+5. Sei präzise und hilfreich
 
 SPRACH-ANWEISUNGEN:
-- Wenn "language: de" -> Antworte auf Deutsch
-- Wenn "language: en" -> Antworte auf Englisch
-- Wenn "language: bs" -> Antworte auf Bosnisch
-
-Du hast Zugriff auf vorherige Nachrichten der Konversation. Nutze diesen Kontext um bessere Antworten zu geben.`,
+- "language: de" -> Antworte auf Deutsch
+- "language: en" -> Antworte auf Englisch
+- "language: bs" -> Antworte auf Bosnisch`,
       model: {
         provider: 'anthropic',
         model: 'claude-sonnet-4-20250514',
