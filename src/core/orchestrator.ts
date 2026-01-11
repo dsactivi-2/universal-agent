@@ -20,6 +20,7 @@ import { Planner } from './planner.js';
 import { StateManager } from '../db/state-manager.js';
 import { AgentRegistry } from '../agents/registry.js';
 import { ToolRegistry } from '../tools/registry.js';
+import { AnthropicProvider } from '../providers/anthropic.js';
 
 export interface OrchestratorConfig {
   maxConcurrentSteps: number;
@@ -389,32 +390,31 @@ export class Orchestrator {
     callbacks: ExecutionCallbacks,
     startTime: number
   ): Promise<ExecutionResult> {
-    // For simple queries, use the research agent directly
-    const agent = this.agentRegistry.get('research');
-
-    if (!agent) {
-      return {
-        taskId: 'simple',
-        status: 'failed',
-        results: {},
-        error: 'Research agent not available',
-        duration: Date.now() - startTime
-      };
-    }
-
+    // For simple conversational queries, use direct Claude API call
     try {
-      // Use full message (includes language instruction) rather than just primaryGoal
-      const output = await agent.execute(
-        { type: 'web_research', params: { topic: message, depth: 'quick' } },
-        { topic: message },
-        callbacks
-      );
+      const provider = new AnthropicProvider();
+
+      // The message already contains language instruction if specified
+      const response = await provider.chat({
+        system: `You are a helpful AI assistant. Be conversational and friendly.
+If the message contains a language instruction (like "WICHTIG: Antworte IMMER auf Deutsch"),
+you MUST respond in that language. Keep responses concise but helpful.`,
+        messages: [
+          { role: 'user', content: message }
+        ],
+        maxTokens: 1024,
+        temperature: 0.7
+      });
+
+      // Extract text from response
+      const textContent = response.content.find(c => c.type === 'text');
+      const summary = textContent?.text || 'No response generated';
 
       const now = new Date();
       const stepResult: StepResult = {
         stepId: 'simple',
         status: 'success' as StepStatus,
-        output,
+        output: { summary },
         startedAt: now,
         completedAt: now,
         duration: Date.now() - startTime,
@@ -427,9 +427,7 @@ export class Orchestrator {
         taskId: 'simple',
         status: 'completed',
         results: { simple: stepResult },
-        summary: typeof output === 'object' && output !== null && 'summary' in output
-          ? String((output as Record<string, unknown>).summary)
-          : JSON.stringify(output),
+        summary,
         duration: Date.now() - startTime
       };
     } catch (error) {
