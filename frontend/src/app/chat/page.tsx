@@ -37,7 +37,7 @@ export default function ChatPage() {
     },
     onTaskCompleted: (taskId, result) => {
       // Update the last assistant message
-      const lastMessage = chatMessages.findLast((m) => m.role === 'assistant');
+      const lastMessage = chatMessages.findLast((m: ChatMessage) => m.role === 'assistant');
       if (lastMessage) {
         updateChatMessage(lastMessage.id, {
           content: result,
@@ -240,7 +240,7 @@ export default function ChatPage() {
                 </p>
               </div>
             ) : (
-              chatMessages.map((message) => (
+              chatMessages.map((message: ChatMessage) => (
                 <div
                   key={message.id}
                   className={cn(

@@ -3,8 +3,10 @@
 import { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
+import { Badge } from '@/components/ui/Badge';
 import { api, GitHubRepo, GitHubBranch, GitHubContent, GitHubCommit } from '@/lib/api';
-import { useAppStore } from '@/stores/app-store';
+import { useAppStore, type BackgroundTask } from '@/stores/app-store';
+import toast from 'react-hot-toast';
 import {
   Github,
   GitBranch,
@@ -28,13 +30,16 @@ import {
   MessageSquare,
   Sparkles,
   X,
-  Loader2
+  Loader2,
+  Activity,
+  CheckCircle2,
+  XCircle
 } from 'lucide-react';
 
 type ActionType = 'analyze' | 'explain' | 'readme' | 'bugs' | 'chat' | 'guide-short' | 'guide-long';
 
 export function GitHubTools() {
-  const { language } = useAppStore();
+  const { language, addBackgroundTask, updateBackgroundTask, backgroundTasks } = useAppStore();
   const [connected, setConnected] = useState(false);
   const [githubUser, setGithubUser] = useState<{ login: string; avatar: string } | null>(null);
   const [repos, setRepos] = useState<GitHubRepo[]>([]);
@@ -204,14 +209,38 @@ export function GitHubTools() {
     setActionResult(null);
   };
 
-  // Action handlers
+  // Get action title for display
+  const getActionTitle = (action: ActionType): string => {
+    switch (action) {
+      case 'analyze': return 'Repo Analyse';
+      case 'explain': return 'Code Erklärung';
+      case 'readme': return 'README generieren';
+      case 'bugs': return 'Bugs finden';
+      case 'chat': return 'Chat öffnen';
+      case 'guide-short': return 'Kurze Anleitung';
+      case 'guide-long': return 'Vollständige Anleitung';
+    }
+  };
+
+  // Action handlers - now with background tasks
   const executeAction = async (action: ActionType) => {
     if (!selectedRepo) return;
 
-    setActionLoading(true);
-    setCurrentAction(action);
-    setActionResult(null);
-    setActiveTab('actions');
+    // Handle chat action separately (redirect)
+    if (action === 'chat') {
+      const filePath = selectedFile?.path;
+      const fileCode = fileContent;
+
+      localStorage.setItem('github_context', JSON.stringify({
+        repo: selectedRepo.fullName,
+        url: selectedRepo.url,
+        file: filePath,
+        code: fileCode
+      }));
+
+      window.location.href = '/chat';
+      return;
+    }
 
     const langName = getLanguageName();
     const repoUrl = selectedRepo.url;
@@ -220,9 +249,11 @@ export function GitHubTools() {
     const fileCode = fileContent;
 
     let prompt = '';
+    let taskDescription = '';
 
     switch (action) {
       case 'analyze':
+        taskDescription = `Analysiere ${repoName}`;
         prompt = `Analysiere das GitHub Repository ${repoName} (${repoUrl}).
 Gib eine strukturierte Übersicht über:
 1. Projekttyp und Technologien
@@ -236,6 +267,7 @@ Antworte auf ${langName}.`;
 
       case 'explain':
         if (filePath && fileCode) {
+          taskDescription = `Erkläre ${filePath}`;
           prompt = `Erkläre den folgenden Code aus ${repoName}/${filePath}:
 
 \`\`\`
@@ -250,6 +282,7 @@ Erkläre:
 
 Antworte auf ${langName}.`;
         } else {
+          taskDescription = `Erkläre ${repoName}`;
           prompt = `Erkläre das Repository ${repoName} (${repoUrl}).
 Was ist der Zweck dieses Projekts und wie ist es aufgebaut?
 Antworte auf ${langName}.`;
@@ -257,6 +290,7 @@ Antworte auf ${langName}.`;
         break;
 
       case 'readme':
+        taskDescription = `README für ${repoName}`;
         prompt = `Erstelle eine professionelle README.md für das Repository ${repoName} (${repoUrl}).
 
 Die README sollte enthalten:
@@ -273,6 +307,7 @@ Formatiere als gültiges Markdown. Antworte auf ${langName}.`;
 
       case 'bugs':
         if (filePath && fileCode) {
+          taskDescription = `Bugs in ${filePath}`;
           prompt = `Analysiere den folgenden Code aus ${repoName}/${filePath} auf Bugs und Probleme:
 
 \`\`\`
@@ -288,30 +323,15 @@ Suche nach:
 
 Gib konkrete Verbesserungsvorschläge. Antworte auf ${langName}.`;
         } else {
+          taskDescription = `Bugs in ${repoName}`;
           prompt = `Analysiere das Repository ${repoName} (${repoUrl}) auf potentielle Bugs und Probleme.
 Fokussiere auf häufige Fehlerquellen und Sicherheitsrisiken.
 Antworte auf ${langName}.`;
         }
         break;
 
-      case 'chat':
-        // Open chat with repo context
-        const chatContext = filePath && fileCode
-          ? `Ich arbeite am Repository ${repoName}. Aktuelle Datei: ${filePath}\n\nCode:\n\`\`\`\n${fileCode}\n\`\`\``
-          : `Ich arbeite am Repository ${repoName} (${repoUrl})`;
-
-        // Store in localStorage for chat to pick up
-        localStorage.setItem('github_context', JSON.stringify({
-          repo: repoName,
-          url: repoUrl,
-          file: filePath,
-          code: fileCode
-        }));
-
-        window.location.href = '/chat';
-        return;
-
       case 'guide-short':
+        taskDescription = `Kurze Anleitung für ${repoName}`;
         prompt = `Erstelle eine KURZE Benutzeranleitung für das Tool/Projekt ${repoName} (${repoUrl}).
 
 Die Anleitung ist für ENDBENUTZER gedacht, nicht für Entwickler.
@@ -327,6 +347,7 @@ Maximal 1 Seite. Antworte auf ${langName}.`;
         break;
 
       case 'guide-long':
+        taskDescription = `Vollständige Anleitung für ${repoName}`;
         prompt = `Erstelle eine VOLLSTÄNDIGE Benutzeranleitung für das Tool/Projekt ${repoName} (${repoUrl}).
 
 Die Anleitung soll umfassend sein und alle Aspekte abdecken:
@@ -363,14 +384,43 @@ Formatiere als gut strukturiertes Dokument. Antworte auf ${langName}.`;
         break;
     }
 
+    // Start the task in the background
     try {
-      const result = await api.createTask(prompt, undefined, language);
-      setActionResult(result.result || result.error || 'Keine Antwort erhalten');
-    } catch (e) {
-      setActionResult(`Fehler: ${e instanceof Error ? e.message : 'Unbekannter Fehler'}`);
-    }
+      const task = await api.createTask(prompt, undefined, language);
 
-    setActionLoading(false);
+      // Add to background tasks
+      const bgTaskId = addBackgroundTask({
+        title: getActionTitle(action),
+        description: taskDescription,
+        source: 'github',
+        metadata: {
+          taskId: task.id,
+          action,
+          repo: repoName,
+          file: filePath
+        }
+      });
+
+      toast.success(`Task gestartet: ${getActionTitle(action)}`, {
+        duration: 3000,
+        icon: '🚀'
+      });
+
+      // Also show result inline if we want
+      setCurrentAction(action);
+      setActionResult(null);
+      setActiveTab('actions');
+
+    } catch (e) {
+      toast.error(`Fehler: ${e instanceof Error ? e.message : 'Unbekannter Fehler'}`);
+    }
+  };
+
+  // Get running tasks for this repo
+  const getRepoTasks = () => {
+    return backgroundTasks.filter((t: BackgroundTask) =>
+      t.source === 'github' && t.metadata?.repo === selectedRepo?.fullName
+    );
   };
 
   // Not connected
@@ -725,6 +775,59 @@ Formatiere als gut strukturiertes Dokument. Antworte auf ${langName}.`;
           {/* Actions Tab */}
           {activeTab === 'actions' && (
             <div className="space-y-4">
+              {/* Running Tasks for this Repo */}
+              {getRepoTasks().length > 0 && (
+                <Card className="p-4">
+                  <h3 className="text-lg font-semibold mb-4 flex items-center gap-2">
+                    <Activity className="w-5 h-5 text-blue-500" />
+                    Laufende Tasks
+                  </h3>
+                  <div className="space-y-3">
+                    {getRepoTasks().map((task: BackgroundTask) => (
+                      <div
+                        key={task.id}
+                        className="p-3 rounded-lg border border-dark-200 dark:border-dark-700 bg-dark-50 dark:bg-dark-800/50"
+                      >
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-2">
+                            {task.status === 'running' || task.status === 'pending' ? (
+                              <Loader2 className="w-4 h-4 text-blue-500 animate-spin" />
+                            ) : task.status === 'completed' ? (
+                              <CheckCircle2 className="w-4 h-4 text-green-500" />
+                            ) : (
+                              <XCircle className="w-4 h-4 text-red-500" />
+                            )}
+                            <span className="font-medium">{task.title}</span>
+                          </div>
+                          <Badge
+                            variant={
+                              task.status === 'completed' ? 'success' :
+                              task.status === 'failed' ? 'error' :
+                              task.status === 'running' ? 'info' : 'warning'
+                            }
+                          >
+                            {task.status === 'pending' ? 'Wartend' :
+                             task.status === 'running' ? 'Läuft' :
+                             task.status === 'completed' ? 'Fertig' : 'Fehlgeschlagen'}
+                          </Badge>
+                        </div>
+                        <p className="text-sm text-dark-500 mt-1">{task.description}</p>
+                        {task.status === 'completed' && task.result && (
+                          <div className="mt-3 p-3 bg-dark-100 dark:bg-dark-900 rounded-lg">
+                            <pre className="whitespace-pre-wrap font-sans text-sm max-h-48 overflow-auto">
+                              {task.result}
+                            </pre>
+                          </div>
+                        )}
+                        {task.status === 'failed' && task.error && (
+                          <p className="mt-2 text-sm text-red-500">{task.error}</p>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                </Card>
+              )}
+
               {/* Action Buttons */}
               <Card className="p-4">
                 <h3 className="text-lg font-semibold mb-4 flex items-center gap-2">
@@ -736,8 +839,6 @@ Formatiere als gut strukturiertes Dokument. Antworte auf ${langName}.`;
                   <Button
                     data-testid="tools_action_analyze"
                     onClick={() => executeAction('analyze')}
-                    loading={actionLoading && currentAction === 'analyze'}
-                    disabled={actionLoading}
                     variant="secondary"
                     className="flex-col h-24 text-center"
                   >
@@ -748,8 +849,6 @@ Formatiere als gut strukturiertes Dokument. Antworte auf ${langName}.`;
                   <Button
                     data-testid="tools_action_explain"
                     onClick={() => executeAction('explain')}
-                    loading={actionLoading && currentAction === 'explain'}
-                    disabled={actionLoading}
                     variant="secondary"
                     className="flex-col h-24 text-center"
                   >
@@ -760,8 +859,6 @@ Formatiere als gut strukturiertes Dokument. Antworte auf ${langName}.`;
                   <Button
                     data-testid="tools_action_readme"
                     onClick={() => executeAction('readme')}
-                    loading={actionLoading && currentAction === 'readme'}
-                    disabled={actionLoading}
                     variant="secondary"
                     className="flex-col h-24 text-center"
                   >
@@ -772,8 +869,6 @@ Formatiere als gut strukturiertes Dokument. Antworte auf ${langName}.`;
                   <Button
                     data-testid="tools_action_bugs"
                     onClick={() => executeAction('bugs')}
-                    loading={actionLoading && currentAction === 'bugs'}
-                    disabled={actionLoading}
                     variant="secondary"
                     className="flex-col h-24 text-center"
                   >
@@ -784,7 +879,6 @@ Formatiere als gut strukturiertes Dokument. Antworte auf ${langName}.`;
                   <Button
                     data-testid="tools_action_chat"
                     onClick={() => executeAction('chat')}
-                    disabled={actionLoading}
                     variant="secondary"
                     className="flex-col h-24 text-center"
                   >
@@ -798,8 +892,6 @@ Formatiere als gut strukturiertes Dokument. Antworte auf ${langName}.`;
                       <Button
                         data-testid="tools_action_guide_short"
                         onClick={() => executeAction('guide-short')}
-                        loading={actionLoading && currentAction === 'guide-short'}
-                        disabled={actionLoading}
                         variant="secondary"
                         size="sm"
                         className="flex-1"
@@ -809,8 +901,6 @@ Formatiere als gut strukturiertes Dokument. Antworte auf ${langName}.`;
                       <Button
                         data-testid="tools_action_guide_long"
                         onClick={() => executeAction('guide-long')}
-                        loading={actionLoading && currentAction === 'guide-long'}
-                        disabled={actionLoading}
                         variant="secondary"
                         size="sm"
                         className="flex-1"
@@ -828,41 +918,9 @@ Formatiere als gut strukturiertes Dokument. Antworte auf ${langName}.`;
                 )}
 
                 <p className="mt-2 text-xs text-dark-400">
-                  Sprache: {getLanguageName()} (änderbar in Settings)
+                  Sprache: {getLanguageName()} (änderbar in Settings) • Tasks laufen im Hintergrund
                 </p>
               </Card>
-
-              {/* Action Result */}
-              {(actionLoading || actionResult) && (
-                <Card className="p-4">
-                  <div className="flex items-center justify-between mb-4">
-                    <h3 className="text-lg font-semibold">Ergebnis</h3>
-                    {actionResult && (
-                      <Button
-                        onClick={() => setActionResult(null)}
-                        variant="ghost"
-                        size="sm"
-                      >
-                        <X className="w-4 h-4" />
-                      </Button>
-                    )}
-                  </div>
-
-                  {actionLoading ? (
-                    <div className="flex items-center justify-center py-12">
-                      <Loader2 className="w-8 h-8 animate-spin text-primary-500" />
-                      <span className="ml-3 text-dark-500">AI arbeitet...</span>
-                    </div>
-                  ) : (
-                    <div
-                      data-testid="tools_action_result"
-                      className="prose dark:prose-invert max-w-none p-4 bg-dark-50 dark:bg-dark-900 rounded-lg overflow-auto max-h-[500px]"
-                    >
-                      <pre className="whitespace-pre-wrap font-sans text-sm">{actionResult}</pre>
-                    </div>
-                  )}
-                </Card>
-              )}
             </div>
           )}
         </>

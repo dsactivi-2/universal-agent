@@ -17,6 +17,21 @@ export interface Notification {
 
 export type Language = 'de' | 'en' | 'bs';
 
+// Background Task for monitoring
+export interface BackgroundTask {
+  id: string;
+  title: string;
+  description: string;
+  status: 'pending' | 'running' | 'completed' | 'failed';
+  progress?: number;
+  result?: string;
+  error?: string;
+  createdAt: string;
+  completedAt?: string;
+  source: string; // e.g., 'github', 'tools', 'chat'
+  metadata?: Record<string, unknown>;
+}
+
 interface AppState {
   // Theme
   theme: 'light' | 'dark' | 'system';
@@ -64,11 +79,19 @@ interface AppState {
   removeNotification: (id: string) => void;
   clearNotifications: () => void;
   markNotificationRead: (id: string) => void;
+
+  // Background Tasks
+  backgroundTasks: BackgroundTask[];
+  addBackgroundTask: (task: Omit<BackgroundTask, 'id' | 'createdAt' | 'status'> & { status?: BackgroundTask['status'] }) => string;
+  updateBackgroundTask: (id: string, updates: Partial<BackgroundTask>) => void;
+  removeBackgroundTask: (id: string) => void;
+  clearCompletedTasks: () => void;
+  getRunningTasks: () => BackgroundTask[];
 }
 
 export const useAppStore = create<AppState>()(
   persist(
-    (set) => ({
+    (set, get) => ({
       // Theme
       theme: 'dark',
       setTheme: (theme) => set({ theme }),
@@ -142,7 +165,55 @@ export const useAppStore = create<AppState>()(
           notifications: state.notifications.map((n) =>
             n.id === id ? { ...n, read: true } : n
           )
-        }))
+        })),
+
+      // Background Tasks
+      backgroundTasks: [],
+      addBackgroundTask: (task) => {
+        const id = `task_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+        set((state) => ({
+          backgroundTasks: [
+            {
+              ...task,
+              id,
+              status: task.status || 'running',
+              createdAt: new Date().toISOString()
+            },
+            ...state.backgroundTasks
+          ].slice(0, 100) // Keep only last 100 tasks
+        }));
+        return id;
+      },
+      updateBackgroundTask: (id, updates) =>
+        set((state) => ({
+          backgroundTasks: state.backgroundTasks.map((task) =>
+            task.id === id
+              ? {
+                  ...task,
+                  ...updates,
+                  completedAt: updates.status === 'completed' || updates.status === 'failed'
+                    ? new Date().toISOString()
+                    : task.completedAt
+                }
+              : task
+          )
+        })),
+      removeBackgroundTask: (id) =>
+        set((state) => ({
+          backgroundTasks: state.backgroundTasks.filter((t) => t.id !== id)
+        })),
+      clearCompletedTasks: () =>
+        set((state) => ({
+          backgroundTasks: state.backgroundTasks.filter(
+            (t) => t.status === 'pending' || t.status === 'running'
+          )
+        })),
+      getRunningTasks: () => {
+        const state = get();
+        return state.backgroundTasks.filter(
+          (t) => t.status === 'pending' || t.status === 'running'
+        );
+      }
     }),
     {
       name: 'universal-agent-storage',

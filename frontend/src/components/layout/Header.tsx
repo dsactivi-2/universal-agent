@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useRef, useEffect } from 'react';
-import { useAppStore } from '@/stores/app-store';
+import { useAppStore, type Notification } from '@/stores/app-store';
 import { Moon, Sun, Bell, Search, X, CheckCircle, AlertCircle, Info } from 'lucide-react';
 import { Input } from '@/components/ui/Input';
 import { cn } from '@/lib/utils';
@@ -31,7 +31,7 @@ export function Header({ title, subtitle }: HeaderProps) {
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
-  const unreadCount = notifications.filter(n => !n.read).length;
+  const unreadCount = notifications.filter((n: Notification) => !n.read).length;
 
   const getIcon = (type: string) => {
     switch (type) {
@@ -107,7 +107,7 @@ export function Header({ title, subtitle }: HeaderProps) {
                       No notifications
                     </div>
                   ) : (
-                    notifications.map((notification) => (
+                    notifications.map((notification: Notification) => (
                       <div
                         key={notification.id}
                         className={cn(

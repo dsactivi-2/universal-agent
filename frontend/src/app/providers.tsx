@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import { Toaster } from 'react-hot-toast';
 import { useAppStore } from '@/stores/app-store';
 import { api } from '@/lib/api';
+import { TaskMonitor } from '@/components/monitoring/TaskMonitor';
 
 export function Providers({ children }: { children: React.ReactNode }) {
   const { theme, isAuthenticated, setAuthenticated, addNotification } = useAppStore();
@@ -85,6 +86,7 @@ export function Providers({ children }: { children: React.ReactNode }) {
   return (
     <>
       {children}
+      <TaskMonitor />
       <Toaster
         position="top-right"
         toastOptions={{
