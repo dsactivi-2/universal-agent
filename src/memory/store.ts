@@ -18,7 +18,73 @@ export class MemoryStore {
   constructor(dbPath: string = './data/memory.db') {
     this.db = new Database(dbPath);
     this.db.pragma('journal_mode = WAL');
+    this.migrateIfNeeded();
     this.initSchema();
+
+    // Rebuild index if migration was performed
+    if ((this as any)._needsIndexRebuild) {
+      this.rebuildIndex();
+      delete (this as any)._needsIndexRebuild;
+    }
+  }
+
+  // ============================================================
+  // MIGRATION - Fix FTS5 table if needed
+  // ============================================================
+
+  private migrateIfNeeded(): void {
+    try {
+      // Check if old FTS table exists with wrong configuration
+      const tableInfo = this.db.prepare(
+        "SELECT sql FROM sqlite_master WHERE type='table' AND name='memories_fts'"
+      ).get() as { sql: string } | undefined;
+
+      if (tableInfo?.sql?.includes("content='memories'")) {
+        console.log('[Memory Store] Migrating FTS table...');
+
+        // Drop old triggers first
+        this.db.exec(`
+          DROP TRIGGER IF EXISTS memories_ai;
+          DROP TRIGGER IF EXISTS memories_ad;
+          DROP TRIGGER IF EXISTS memories_au;
+        `);
+
+        // Drop old FTS table
+        this.db.exec('DROP TABLE IF EXISTS memories_fts');
+
+        // Mark that we need to rebuild index
+        (this as any)._needsIndexRebuild = true;
+
+        console.log('[Memory Store] FTS table migration complete');
+      }
+    } catch (error) {
+      // Ignore errors during migration check - table might not exist yet
+      console.log('[Memory Store] Migration check skipped:', error);
+    }
+  }
+
+  /**
+   * Rebuild FTS index from existing memories
+   */
+  rebuildIndex(): number {
+    const memories = this.db.prepare('SELECT id, content, metadata FROM memories').all() as any[];
+    let indexed = 0;
+
+    for (const mem of memories) {
+      try {
+        const tags = JSON.parse(mem.metadata || '{}')?.tags;
+        this.db.prepare(`
+          INSERT OR REPLACE INTO memories_fts(id, content, tags)
+          VALUES (?, ?, ?)
+        `).run(mem.id, mem.content, tags ? JSON.stringify(tags) : null);
+        indexed++;
+      } catch {
+        // Skip invalid entries
+      }
+    }
+
+    console.log(`[Memory Store] Rebuilt FTS index: ${indexed} entries`);
+    return indexed;
   }
 
   // ============================================================
@@ -46,13 +112,11 @@ export class MemoryStore {
       CREATE INDEX IF NOT EXISTS idx_memories_importance ON memories(importance DESC);
       CREATE INDEX IF NOT EXISTS idx_memories_created ON memories(created_at DESC);
 
-      -- Full-text search table
+      -- Full-text search table (standalone, synced via triggers)
       CREATE VIRTUAL TABLE IF NOT EXISTS memories_fts USING fts5(
         id,
         content,
-        tags,
-        content='memories',
-        content_rowid='rowid'
+        tags
       );
 
       -- Triggers to keep FTS in sync

@@ -63,7 +63,15 @@ export class APIServer {
     schedulerDbPath?: string;
     workflowDbPath?: string;
   }) {
-    this.jwtSecret = config?.jwtSecret || process.env.JWT_SECRET || 'dev-secret-change-in-production';
+    // JWT Secret: Required in production, allows dev fallback only in development
+    const secret = config?.jwtSecret || process.env.JWT_SECRET;
+    if (!secret && process.env.NODE_ENV === 'production') {
+      throw new Error('JWT_SECRET environment variable is required in production');
+    }
+    if (!secret) {
+      console.warn('[Security Warning] Using development JWT secret. Set JWT_SECRET in production!');
+    }
+    this.jwtSecret = secret || 'dev-secret-DO-NOT-USE-IN-PRODUCTION';
     this.agent = new UniversalAgent({ dbPath: config?.dbPath });
     this.brain = new Brain({ dbPath: config?.memoryDbPath });
 

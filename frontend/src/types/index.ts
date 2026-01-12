@@ -101,16 +101,24 @@ export interface WorkflowExecution {
 }
 
 // Scheduler Types
+export type Schedule =
+  | { type: 'cron'; expression: string; timezone?: string }
+  | { type: 'interval'; milliseconds: number }
+  | { type: 'once'; at: string };
+
+export type JobConfig =
+  | { type: 'task'; message: string; agent?: string }
+  | { type: 'workflow'; workflowId: string; input?: Record<string, unknown> }
+  | { type: 'webhook'; url: string; method?: string; headers?: Record<string, string>; body?: string }
+  | { type: 'command'; command: string; cwd?: string; timeout?: number };
+
 export interface ScheduledJob {
   id: string;
   name: string;
   description?: string;
-  schedule: {
-    type: 'cron' | 'interval' | 'once';
-    expression: string;
-  };
-  jobType: 'task' | 'workflow' | 'webhook' | 'command';
-  config: Record<string, unknown>;
+  schedule: Schedule;
+  jobType?: 'task' | 'workflow' | 'webhook' | 'command';  // Legacy field, use config.type
+  config: JobConfig;
   enabled: boolean;
   lastRun?: string;
   nextRun?: string;

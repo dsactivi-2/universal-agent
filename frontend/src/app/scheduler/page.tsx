@@ -7,8 +7,8 @@ import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import { Badge } from '@/components/ui/Badge';
 import { api } from '@/lib/api';
-import { formatRelativeTime, cronToHuman } from '@/lib/utils';
-import type { ScheduledJob, JobExecution } from '@/types';
+import { formatRelativeTime, scheduleToHuman } from '@/lib/utils';
+import type { ScheduledJob, JobExecution, Schedule, JobConfig } from '@/types';
 import {
   Clock,
   Play,
@@ -31,9 +31,11 @@ export default function SchedulerPage() {
   // Form state for new job
   const [newJob, setNewJob] = useState({
     name: '',
-    scheduleType: 'cron',
-    expression: '0 * * * *',
-    jobType: 'task',
+    scheduleType: 'cron' as 'cron' | 'interval' | 'once',
+    expression: '0 * * * *',  // for cron
+    milliseconds: 3600000,     // for interval (1 hour default)
+    at: '',                    // for once
+    jobType: 'task' as 'task' | 'workflow' | 'webhook' | 'command',
     task: ''
   });
 
@@ -99,18 +101,38 @@ export default function SchedulerPage() {
 
   async function handleCreate() {
     try {
+      // Build schedule object based on type
+      let schedule: Schedule;
+      if (newJob.scheduleType === 'cron') {
+        schedule = { type: 'cron', expression: newJob.expression };
+      } else if (newJob.scheduleType === 'interval') {
+        schedule = { type: 'interval', milliseconds: newJob.milliseconds };
+      } else {
+        schedule = { type: 'once', at: newJob.at || new Date().toISOString() };
+      }
+
+      // Build config object (currently only task type supported in UI)
+      const config: JobConfig = {
+        type: 'task',
+        message: newJob.task,
+      };
+
       const job = await api.createJob({
         name: newJob.name,
-        schedule: {
-          type: newJob.scheduleType as 'cron' | 'interval' | 'once',
-          expression: newJob.expression
-        },
-        jobType: newJob.jobType as 'task' | 'workflow' | 'webhook' | 'command',
-        config: { task: newJob.task }
+        schedule,
+        config,
       });
       setJobs([...jobs, job]);
       setShowCreate(false);
-      setNewJob({ name: '', scheduleType: 'cron', expression: '0 * * * *', jobType: 'task', task: '' });
+      setNewJob({
+        name: '',
+        scheduleType: 'cron',
+        expression: '0 * * * *',
+        milliseconds: 3600000,
+        at: '',
+        jobType: 'task',
+        task: ''
+      });
     } catch (error) {
       console.error('Create failed:', error);
     }
@@ -165,7 +187,7 @@ export default function SchedulerPage() {
                         </Badge>
                       </div>
                       <p className="text-xs text-dark-500 mt-1">
-                        {cronToHuman(job.schedule.expression)}
+                        {scheduleToHuman(job.schedule)}
                       </p>
                     </div>
                   ))}
@@ -220,13 +242,13 @@ export default function SchedulerPage() {
                     <div>
                       <p className="text-xs text-dark-500 mb-1">Schedule</p>
                       <p className="text-sm font-medium text-dark-900 dark:text-white">
-                        {cronToHuman(selectedJob.schedule.expression)}
+                        {scheduleToHuman(selectedJob.schedule)}
                       </p>
                     </div>
                     <div>
                       <p className="text-xs text-dark-500 mb-1">Type</p>
                       <p className="text-sm font-medium text-dark-900 dark:text-white capitalize">
-                        {selectedJob.jobType}
+                        {selectedJob.config?.type || selectedJob.jobType || 'task'}
                       </p>
                     </div>
                     <div>
@@ -347,7 +369,7 @@ export default function SchedulerPage() {
                   </label>
                   <select
                     value={newJob.scheduleType}
-                    onChange={(e) => setNewJob({ ...newJob, scheduleType: e.target.value })}
+                    onChange={(e) => setNewJob({ ...newJob, scheduleType: e.target.value as 'cron' | 'interval' | 'once' })}
                     className="w-full rounded-lg border border-dark-200 dark:border-dark-700 bg-white dark:bg-dark-800 px-4 py-2 text-dark-900 dark:text-white"
                   >
                     <option value="cron">Cron</option>
@@ -356,12 +378,44 @@ export default function SchedulerPage() {
                   </select>
                 </div>
 
-                <Input
-                  label="Expression"
-                  value={newJob.expression}
-                  onChange={(e) => setNewJob({ ...newJob, expression: e.target.value })}
-                  placeholder="0 * * * *"
-                />
+                {newJob.scheduleType === 'cron' && (
+                  <Input
+                    label="Cron Expression"
+                    value={newJob.expression}
+                    onChange={(e) => setNewJob({ ...newJob, expression: e.target.value })}
+                    placeholder="0 * * * * (every hour)"
+                  />
+                )}
+
+                {newJob.scheduleType === 'interval' && (
+                  <div>
+                    <label className="block text-sm font-medium text-dark-700 dark:text-dark-300 mb-1">
+                      Interval (minutes)
+                    </label>
+                    <input
+                      type="number"
+                      min="1"
+                      value={Math.round(newJob.milliseconds / 60000)}
+                      onChange={(e) => setNewJob({ ...newJob, milliseconds: parseInt(e.target.value) * 60000 || 60000 })}
+                      className="w-full rounded-lg border border-dark-200 dark:border-dark-700 bg-white dark:bg-dark-800 px-4 py-2 text-dark-900 dark:text-white"
+                      placeholder="60"
+                    />
+                  </div>
+                )}
+
+                {newJob.scheduleType === 'once' && (
+                  <div>
+                    <label className="block text-sm font-medium text-dark-700 dark:text-dark-300 mb-1">
+                      Run At
+                    </label>
+                    <input
+                      type="datetime-local"
+                      value={newJob.at}
+                      onChange={(e) => setNewJob({ ...newJob, at: new Date(e.target.value).toISOString() })}
+                      className="w-full rounded-lg border border-dark-200 dark:border-dark-700 bg-white dark:bg-dark-800 px-4 py-2 text-dark-900 dark:text-white"
+                    />
+                  </div>
+                )}
 
                 <Input
                   label="Task"

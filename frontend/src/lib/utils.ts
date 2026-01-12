@@ -77,7 +77,8 @@ export function debounce<T extends (...args: unknown[]) => void>(
 /**
  * Parse cron expression to human readable
  */
-export function cronToHuman(expression: string): string {
+export function cronToHuman(expression: string | undefined): string {
+  if (!expression) return 'No schedule';
   const parts = expression.split(' ');
   if (parts.length !== 5) return expression;
 
@@ -89,6 +90,31 @@ export function cronToHuman(expression: string): string {
   if (dayOfWeek === '1-5' && minute === '0' && hour === '9') return 'Weekdays at 9:00 AM';
 
   return expression;
+}
+
+/**
+ * Format schedule object to human readable
+ */
+export function scheduleToHuman(schedule: { type: string; expression?: string; milliseconds?: number; at?: string }): string {
+  if (!schedule) return 'No schedule';
+
+  switch (schedule.type) {
+    case 'cron':
+      return cronToHuman(schedule.expression);
+    case 'interval':
+      if (!schedule.milliseconds) return 'Invalid interval';
+      const minutes = schedule.milliseconds / 60000;
+      if (minutes < 60) return `Every ${minutes} minute${minutes !== 1 ? 's' : ''}`;
+      const hours = minutes / 60;
+      if (hours < 24) return `Every ${hours} hour${hours !== 1 ? 's' : ''}`;
+      const days = hours / 24;
+      return `Every ${days} day${days !== 1 ? 's' : ''}`;
+    case 'once':
+      if (!schedule.at) return 'Invalid date';
+      return `Once at ${new Date(schedule.at).toLocaleString()}`;
+    default:
+      return 'Unknown schedule type';
+  }
 }
 
 /**
