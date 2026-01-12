@@ -17,7 +17,8 @@ import {
   Edit,
   CheckCircle,
   XCircle,
-  Clock
+  Clock,
+  X
 } from 'lucide-react';
 
 export default function WorkflowsPage() {
@@ -25,6 +26,12 @@ export default function WorkflowsPage() {
   const [selectedWorkflow, setSelectedWorkflow] = useState<Workflow | null>(null);
   const [loading, setLoading] = useState(true);
   const [executing, setExecuting] = useState(false);
+  const [showCreateModal, setShowCreateModal] = useState(false);
+  const [creating, setCreating] = useState(false);
+  const [newWorkflow, setNewWorkflow] = useState({
+    name: '',
+    description: ''
+  });
 
   useEffect(() => {
     loadWorkflows();
@@ -69,6 +76,28 @@ export default function WorkflowsPage() {
     }
   }
 
+  async function handleCreate() {
+    if (!newWorkflow.name.trim()) return;
+
+    setCreating(true);
+    try {
+      const workflow = await api.createWorkflow({
+        name: newWorkflow.name,
+        description: newWorkflow.description,
+        nodes: [],
+        edges: [],
+        variables: {}
+      });
+      setWorkflows([workflow, ...workflows]);
+      setShowCreateModal(false);
+      setNewWorkflow({ name: '', description: '' });
+    } catch (error) {
+      console.error('Create failed:', error);
+    } finally {
+      setCreating(false);
+    }
+  }
+
   return (
     <div className="min-h-screen">
       <Header
@@ -85,11 +114,75 @@ export default function WorkflowsPage() {
               className="w-64"
             />
           </div>
-          <Button>
+          <Button onClick={() => setShowCreateModal(true)}>
             <Plus className="w-4 h-4 mr-2" />
             New Workflow
           </Button>
         </div>
+
+        {/* Create Workflow Modal */}
+        {showCreateModal && (
+          <>
+            <div
+              className="fixed inset-0 bg-black/50 z-50"
+              onClick={() => setShowCreateModal(false)}
+            />
+            <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+              <div className="bg-white dark:bg-dark-900 rounded-xl shadow-2xl w-full max-w-md">
+                <div className="flex items-center justify-between px-6 py-4 border-b border-dark-200 dark:border-dark-700">
+                  <h2 className="text-lg font-semibold text-dark-900 dark:text-white">
+                    Neuen Workflow erstellen
+                  </h2>
+                  <button
+                    onClick={() => setShowCreateModal(false)}
+                    className="p-2 rounded-lg hover:bg-dark-100 dark:hover:bg-dark-800 text-dark-500"
+                  >
+                    <X className="w-5 h-5" />
+                  </button>
+                </div>
+                <div className="p-6 space-y-4">
+                  <div>
+                    <label className="block text-sm font-medium text-dark-700 dark:text-dark-300 mb-1">
+                      Name *
+                    </label>
+                    <Input
+                      data-testid="workflow_input_name"
+                      placeholder="z.B. Code Review Workflow"
+                      value={newWorkflow.name}
+                      onChange={(e) => setNewWorkflow({ ...newWorkflow, name: e.target.value })}
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-dark-700 dark:text-dark-300 mb-1">
+                      Beschreibung
+                    </label>
+                    <textarea
+                      data-testid="workflow_input_description"
+                      className="w-full px-3 py-2 border border-dark-200 dark:border-dark-700 rounded-lg bg-white dark:bg-dark-800 text-dark-900 dark:text-white placeholder-dark-400 focus:outline-none focus:ring-2 focus:ring-primary-500"
+                      rows={3}
+                      placeholder="Was macht dieser Workflow?"
+                      value={newWorkflow.description}
+                      onChange={(e) => setNewWorkflow({ ...newWorkflow, description: e.target.value })}
+                    />
+                  </div>
+                </div>
+                <div className="flex justify-end gap-3 px-6 py-4 border-t border-dark-200 dark:border-dark-700">
+                  <Button variant="ghost" onClick={() => setShowCreateModal(false)}>
+                    Abbrechen
+                  </Button>
+                  <Button
+                    data-testid="workflow_button_create"
+                    onClick={handleCreate}
+                    loading={creating}
+                    disabled={!newWorkflow.name.trim()}
+                  >
+                    Erstellen
+                  </Button>
+                </div>
+              </div>
+            </div>
+          </>
+        )}
 
         {/* Workflow Grid */}
         {loading ? (
@@ -106,7 +199,7 @@ export default function WorkflowsPage() {
               <p className="text-sm text-dark-500 mb-4">
                 Create your first workflow to automate tasks
               </p>
-              <Button>
+              <Button onClick={() => setShowCreateModal(true)}>
                 <Plus className="w-4 h-4 mr-2" />
                 Create Workflow
               </Button>
