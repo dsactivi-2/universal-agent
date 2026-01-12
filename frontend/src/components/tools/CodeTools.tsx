@@ -34,11 +34,12 @@ export function CodeTools() {
     setLoading(false);
   };
 
-  const handleNpm = async () => {
-    if (!npmCommand) return;
+  const handleNpm = async (command?: string) => {
+    const cmd = command || npmCommand;
+    if (!cmd) return;
     setLoading(true);
     try {
-      const res = await api.runNpm(npmCommand, npmCwd || undefined);
+      const res = await api.runNpm(cmd, npmCwd || undefined);
       setResult(res.result || res.error || 'Keine Antwort');
     } catch (e) {
       setResult(`Error: ${e instanceof Error ? e.message : 'Unknown error'}`);
@@ -119,10 +120,8 @@ export function CodeTools() {
           <div className="flex gap-2 flex-wrap">
             <Button
               data-testid="tools_button_npm_install"
-              onClick={() => {
-                setNpmCommand('install');
-                handleNpm();
-              }}
+              onClick={() => handleNpm('install')}
+              loading={loading}
               variant="secondary"
               size="sm"
             >
@@ -131,10 +130,8 @@ export function CodeTools() {
             </Button>
             <Button
               data-testid="tools_button_npm_build"
-              onClick={() => {
-                setNpmCommand('run build');
-                handleNpm();
-              }}
+              onClick={() => handleNpm('run build')}
+              loading={loading}
               variant="secondary"
               size="sm"
             >
@@ -143,10 +140,8 @@ export function CodeTools() {
             </Button>
             <Button
               data-testid="tools_button_npm_test"
-              onClick={() => {
-                setNpmCommand('test');
-                handleNpm();
-              }}
+              onClick={() => handleNpm('test')}
+              loading={loading}
               variant="secondary"
               size="sm"
             >
@@ -157,7 +152,7 @@ export function CodeTools() {
 
           <Button
             data-testid="tools_button_npm_run"
-            onClick={handleNpm}
+            onClick={() => handleNpm()}
             loading={loading}
             disabled={!npmCommand}
           >

@@ -16,6 +16,7 @@ import { WorkflowEngine } from '../workflow/engine.js';
 import type { LogEntry, ToolCallRecord, ExecutionCallbacks } from '../types/index.js';
 import { createAdditionalRoutes, WorkflowStorage } from './routes.js';
 import { GitHubStorage, createGitHubRoutes, createGitHubCallbackRoute } from './github.js';
+import { createDirectToolRoutes } from './tools-direct.js';
 
 // ============================================================
 // TYPES
@@ -219,6 +220,10 @@ export class APIServer {
     // Add GitHub OAuth routes
     const githubRoutes = createGitHubRoutes(this.githubStorage);
     protectedRouter.use('/github', githubRoutes);
+
+    // Add direct tool routes (real execution, not via AI)
+    const directToolRoutes = createDirectToolRoutes();
+    protectedRouter.use('/tools', directToolRoutes);
 
     this.app.use('/api', protectedRouter);
   }

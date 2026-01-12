@@ -167,6 +167,7 @@ export interface ChatMessage {
 // Tool Types
 export interface ToolResult {
   success: boolean;
+  result?: string;
   data?: unknown;
   error?: string;
 }

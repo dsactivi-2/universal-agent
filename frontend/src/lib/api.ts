@@ -276,128 +276,181 @@ class ApiClient {
   }
 
   // ============================================================
-  // TOOLS - Direct tool execution via Chat Agent
-  // All tools return Task which contains the result in the summary field
+  // TOOLS - Direct tool execution endpoints
   // ============================================================
 
   // File Operations
-  async fileRead(path: string): Promise<Task> {
-    return this.createTask(`Lies die Datei: ${path}`);
+  async fileRead(path: string): Promise<ToolResult & { content?: string; path?: string; size?: number }> {
+    return this.request('/api/tools/file/read', {
+      method: 'POST',
+      body: JSON.stringify({ path })
+    });
   }
 
-  async fileWrite(path: string, content: string): Promise<Task> {
-    return this.createTask(`Schreibe in Datei ${path}:\n\n${content}`);
+  async fileWrite(path: string, content: string): Promise<ToolResult> {
+    return this.request('/api/tools/file/write', {
+      method: 'POST',
+      body: JSON.stringify({ path, content })
+    });
   }
 
-  async fileEdit(path: string, search: string, replace: string): Promise<Task> {
-    return this.createTask(`Ersetze in Datei ${path} "${search}" mit "${replace}"`);
+  async fileEdit(path: string, search: string, replace: string): Promise<ToolResult> {
+    return this.request('/api/tools/file/edit', {
+      method: 'POST',
+      body: JSON.stringify({ path, search, replace })
+    });
   }
 
-  async fileList(path: string): Promise<Task> {
-    return this.createTask(`Liste alle Dateien in: ${path}`);
+  async fileList(path: string): Promise<ToolResult & { files?: Array<{ name: string; path: string; isDirectory: boolean; size: number; modified: string }> }> {
+    return this.request('/api/tools/file/list', {
+      method: 'POST',
+      body: JSON.stringify({ path })
+    });
   }
 
   // Code Execution
-  async executeCode(language: string, code: string): Promise<Task> {
-    return this.createTask(`Führe diesen ${language} Code aus:\n\`\`\`${language}\n${code}\n\`\`\``);
+  async executeCode(language: string, code: string): Promise<ToolResult & { result?: string; output?: string; exitCode?: number }> {
+    return this.request('/api/tools/code/execute', {
+      method: 'POST',
+      body: JSON.stringify({ language, code })
+    });
   }
 
-  async runNpm(command: string, cwd?: string): Promise<Task> {
-    const dir = cwd ? ` im Verzeichnis ${cwd}` : '';
-    return this.createTask(`Führe npm ${command}${dir} aus`);
+  async runNpm(command: string, cwd?: string): Promise<ToolResult & { result?: string; output?: string; exitCode?: number }> {
+    return this.request('/api/tools/npm/run', {
+      method: 'POST',
+      body: JSON.stringify({ command, cwd })
+    });
   }
 
   // Git Operations
-  async gitStatus(path?: string): Promise<Task> {
-    const dir = path ? ` in ${path}` : '';
-    return this.createTask(`Zeige git status${dir}`);
+  async gitStatus(path?: string): Promise<ToolResult & { result?: string; branch?: string; staged?: string[]; unstaged?: string[]; untracked?: string[] }> {
+    return this.request('/api/tools/git/status', {
+      method: 'POST',
+      body: JSON.stringify({ path })
+    });
   }
 
-  async gitDiff(path?: string): Promise<Task> {
-    const dir = path ? ` in ${path}` : '';
-    return this.createTask(`Zeige git diff${dir}`);
+  async gitDiff(path?: string): Promise<ToolResult & { result?: string }> {
+    return this.request('/api/tools/git/diff', {
+      method: 'POST',
+      body: JSON.stringify({ path })
+    });
   }
 
-  async gitLog(count?: number, path?: string): Promise<Task> {
-    const n = count || 10;
-    const dir = path ? ` in ${path}` : '';
-    return this.createTask(`Zeige die letzten ${n} git commits${dir}`);
+  async gitLog(count?: number, path?: string): Promise<ToolResult & { result?: string; commits?: Array<{ hash: string; author: string; date: string; message: string }> }> {
+    return this.request('/api/tools/git/log', {
+      method: 'POST',
+      body: JSON.stringify({ count, path })
+    });
   }
 
-  async gitAdd(files: string[]): Promise<Task> {
-    return this.createTask(`Git add: ${files.join(', ')}`);
+  async gitAdd(files: string[]): Promise<ToolResult & { result?: string }> {
+    return this.request('/api/tools/git/add', {
+      method: 'POST',
+      body: JSON.stringify({ files })
+    });
   }
 
-  async gitCommit(message: string): Promise<Task> {
-    return this.createTask(`Git commit mit Message: "${message}"`);
+  async gitCommit(message: string): Promise<ToolResult & { result?: string }> {
+    return this.request('/api/tools/git/commit', {
+      method: 'POST',
+      body: JSON.stringify({ message })
+    });
   }
 
-  async gitPush(remote?: string, branch?: string): Promise<Task> {
-    const r = remote || 'origin';
-    const b = branch ? ` ${branch}` : '';
-    return this.createTask(`Git push zu ${r}${b}`);
+  async gitPush(remote?: string, branch?: string): Promise<ToolResult & { result?: string }> {
+    return this.request('/api/tools/git/push', {
+      method: 'POST',
+      body: JSON.stringify({ remote, branch })
+    });
   }
 
-  async gitPull(remote?: string, branch?: string): Promise<Task> {
-    const r = remote || 'origin';
-    const b = branch ? ` ${branch}` : '';
-    return this.createTask(`Git pull von ${r}${b}`);
+  async gitPull(remote?: string, branch?: string): Promise<ToolResult & { result?: string }> {
+    return this.request('/api/tools/git/pull', {
+      method: 'POST',
+      body: JSON.stringify({ remote, branch })
+    });
   }
 
-  async gitBranch(name?: string): Promise<Task> {
-    if (name) {
-      return this.createTask(`Erstelle git branch: ${name}`);
-    }
-    return this.createTask('Liste alle git branches');
+  async gitBranch(name?: string): Promise<ToolResult & { result?: string; branches?: string[] }> {
+    return this.request('/api/tools/git/branch', {
+      method: 'POST',
+      body: JSON.stringify({ name })
+    });
   }
 
   // Data Operations
-  async parseCsv(content: string): Promise<Task> {
-    return this.createTask(`Parse diese CSV Daten:\n${content}`);
+  async parseCsv(content: string): Promise<ToolResult & { result?: string; data?: unknown[] }> {
+    return this.request('/api/tools/data/parse-csv', {
+      method: 'POST',
+      body: JSON.stringify({ content })
+    });
   }
 
-  async parseJson(content: string): Promise<Task> {
-    return this.createTask(`Parse dieses JSON:\n${content}`);
+  async parseJson(content: string): Promise<ToolResult & { result?: string; data?: unknown }> {
+    return this.request('/api/tools/data/parse-json', {
+      method: 'POST',
+      body: JSON.stringify({ content })
+    });
   }
 
-  async sqlQuery(query: string): Promise<Task> {
-    return this.createTask(`Führe diese SQL Query aus: ${query}`);
+  async sqlQuery(query: string): Promise<ToolResult & { result?: string; columns?: string[]; rows?: unknown[][] }> {
+    return this.request('/api/tools/data/query', {
+      method: 'POST',
+      body: JSON.stringify({ query })
+    });
   }
 
-  async createTempTable(name: string, columns: string[]): Promise<Task> {
-    return this.createTask(`Erstelle temporäre Tabelle ${name} mit Spalten: ${columns.join(', ')}`);
+  async createTempTable(name: string, columns: string[]): Promise<ToolResult & { result?: string }> {
+    return this.request('/api/tools/data/table/create', {
+      method: 'POST',
+      body: JSON.stringify({ name, columns })
+    });
   }
 
-  async listTables(): Promise<Task> {
-    return this.createTask('Liste alle Datenbank-Tabellen');
+  async listTables(): Promise<ToolResult & { result?: string; tables?: string[] }> {
+    return this.request('/api/tools/data/tables', {
+      method: 'GET'
+    });
   }
 
-  async aggregateData(table: string, operation: string, column: string): Promise<Task> {
-    return this.createTask(`Berechne ${operation} für Spalte ${column} in Tabelle ${table}`);
+  async aggregateData(table: string, operation: string, column: string): Promise<ToolResult & { result?: string }> {
+    return this.request('/api/tools/data/query', {
+      method: 'POST',
+      body: JSON.stringify({ query: `SELECT ${operation}(${column}) FROM ${table}` })
+    });
   }
 
   // Chart Operations
-  async createBarChart(data: unknown[], title: string): Promise<Task> {
-    return this.createTask(`Erstelle ein Balkendiagramm mit Titel "${title}" und diesen Daten: ${JSON.stringify(data)}`);
+  async createChart(type: string, data: unknown[], options: { title?: string; xLabel?: string; yLabel?: string }): Promise<ToolResult & { result?: string; chartData?: unknown }> {
+    return this.request('/api/tools/chart/create', {
+      method: 'POST',
+      body: JSON.stringify({ type, data, options })
+    });
   }
 
-  async createLineChart(data: unknown[], title: string): Promise<Task> {
-    return this.createTask(`Erstelle ein Liniendiagramm mit Titel "${title}" und diesen Daten: ${JSON.stringify(data)}`);
+  async createBarChart(data: unknown[], title: string): Promise<ToolResult & { result?: string; chartData?: unknown }> {
+    return this.createChart('bar', data, { title });
   }
 
-  async createPieChart(data: unknown[], title: string): Promise<Task> {
-    return this.createTask(`Erstelle ein Kreisdiagramm mit Titel "${title}" und diesen Daten: ${JSON.stringify(data)}`);
+  async createLineChart(data: unknown[], title: string): Promise<ToolResult & { result?: string; chartData?: unknown }> {
+    return this.createChart('line', data, { title });
   }
 
-  async createScatterPlot(data: unknown[], title: string): Promise<Task> {
-    return this.createTask(`Erstelle ein Streudiagramm mit Titel "${title}" und diesen Daten: ${JSON.stringify(data)}`);
+  async createPieChart(data: unknown[], title: string): Promise<ToolResult & { result?: string; chartData?: unknown }> {
+    return this.createChart('pie', data, { title });
   }
 
-  async createHistogram(data: unknown[], title: string): Promise<Task> {
-    return this.createTask(`Erstelle ein Histogramm mit Titel "${title}" und diesen Daten: ${JSON.stringify(data)}`);
+  async createScatterPlot(data: unknown[], title: string): Promise<ToolResult & { result?: string; chartData?: unknown }> {
+    return this.createChart('scatter', data, { title });
   }
 
-  // Web Search
+  async createHistogram(data: unknown[], title: string): Promise<ToolResult & { result?: string; chartData?: unknown }> {
+    return this.createChart('histogram', data, { title });
+  }
+
+  // Web Search (still via AI agent as it requires external API)
   async webSearch(query: string): Promise<Task> {
     return this.createTask(`Suche im Internet nach: ${query}`);
   }
