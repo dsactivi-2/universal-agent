@@ -248,12 +248,21 @@ export class APIServer {
         language: language || 'de'
       });
 
+      // Map to frontend Task format
+      const status = typeof result.status === 'object' && result.status !== null
+        ? (result.status as { phase?: string }).phase || 'completed'
+        : result.status || 'completed';
+
       res.json({
-        taskId: result.taskId,
-        status: result.status,
-        summary: result.summary,
+        id: result.taskId,
+        prompt: message,
+        status: status,
+        result: result.summary,
+        error: result.error,
+        createdAt: new Date().toISOString(),
         duration: result.duration,
-        error: result.error
+        toolCalls: [],
+        logs: []
       });
     } catch (error) {
       res.status(500).json({
@@ -271,7 +280,20 @@ export class APIServer {
       return;
     }
 
-    res.json(task);
+    // Map to frontend Task format
+    // Backend Task has: id, userId, goal, context, constraints, priority, deadline, status, createdAt, updatedAt
+    // TaskStatus has: phase, currentStep, progress, error (TaskError), waitingFor
+    res.json({
+      id: task.id,
+      prompt: task.goal,
+      status: task.status?.phase || 'pending',
+      result: undefined,
+      error: task.status?.error?.message || undefined,
+      createdAt: task.createdAt instanceof Date ? task.createdAt.toISOString() : String(task.createdAt),
+      updatedAt: task.updatedAt instanceof Date ? task.updatedAt.toISOString() : String(task.updatedAt),
+      toolCalls: [],
+      logs: []
+    });
   }
 
   private async handleMemoryCreate(req: AuthenticatedRequest, res: Response): Promise<void> {
@@ -294,16 +316,19 @@ export class APIServer {
   }
 
   private async handleMemorySearch(req: AuthenticatedRequest, res: Response): Promise<void> {
-    const { q, types, limit } = req.query;
+    const { q, query, types, limit } = req.query;
     const userId = req.userId!;
 
-    if (!q) {
-      res.status(400).json({ error: 'q (query) required' });
+    // Accept both 'q' and 'query' parameter names
+    const searchQuery = q || query;
+
+    if (!searchQuery) {
+      res.status(400).json({ error: 'q or query parameter required' });
       return;
     }
 
     try {
-      const results = await this.brain.recall(userId, q as string, {
+      const results = await this.brain.recall(userId, searchQuery as string, {
         types: types ? (types as string).split(',') as any : undefined,
         limit: limit ? parseInt(limit as string) : undefined
       });
